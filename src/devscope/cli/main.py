@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -16,8 +17,10 @@ from devscope.collectors.base import Event
 from devscope.collectors.git_local import GitLocalCollector
 from devscope.config import Settings, load_settings
 from devscope.generators.standup import StandupGenerator
+from devscope.llm.base import LLMProvider
 from devscope.llm.budget import BudgetGuard
 from devscope.llm.providers.ollama import OllamaProvider
+from devscope.llm.providers.openai import OpenAIProvider
 from devscope.llm.router import LLMRouter
 from devscope.storage.repositories import (
     EventRepo,
@@ -97,12 +100,35 @@ def projects_list() -> None:
 @app.command()
 def today(
     since_hours: int = typer.Option(24, "--since-hours", "-s", help="Window size in hours."),
+    provider: str = typer.Option(
+        "auto",
+        "--provider",
+        "-p",
+        help="LLM provider: auto | openai | ollama. 'auto' uses OpenAI if "
+        "OPENAI_API_KEY is set, else Ollama.",
+    ),
 ) -> None:
     """Generate a standup summary from the last N hours of activity across all projects."""
-    asyncio.run(_today_impl(since_hours))
+    asyncio.run(_today_impl(since_hours, provider))
 
 
-async def _today_impl(since_hours: int) -> None:
+def _build_chain(
+    provider_choice: str, settings: Settings
+) -> tuple[list[LLMProvider], dict[str, str]]:
+    has_openai = bool(os.environ.get("OPENAI_API_KEY"))
+    if provider_choice == "auto":
+        provider_choice = "openai" if has_openai else "ollama"
+
+    if provider_choice == "openai":
+        if not has_openai:
+            raise typer.BadParameter("--provider openai requires OPENAI_API_KEY env var.")
+        return [OpenAIProvider()], {"openai": settings.llm.default_model.openai}
+    if provider_choice == "ollama":
+        return [OllamaProvider()], {"ollama": settings.llm.default_model.ollama}
+    raise typer.BadParameter(f"Unknown provider: {provider_choice}")
+
+
+async def _today_impl(since_hours: int, provider_choice: str = "auto") -> None:
     settings = load_settings()
     engine = make_engine(settings.storage.db_path)
     SessionLocal = session_factory(engine)
@@ -139,11 +165,12 @@ async def _today_impl(since_hours: int) -> None:
             monthly_usd=settings.llm.budget.monthly_usd,
             hard_stop=settings.llm.budget.hard_stop,
         )
+        chain, model_for = _build_chain(provider_choice, settings)
         router = LLMRouter(
-            chain=[OllamaProvider()],
+            chain=chain,
             guard=guard,
             repo=llm_repo,
-            model_for={"ollama": settings.llm.default_model.ollama},
+            model_for=model_for,
         )
         generator = StandupGenerator(router=router)
         output = await generator.run(

@@ -14,6 +14,7 @@ class BudgetSettings(BaseModel):
 
 class LLMModelDefaults(BaseModel):
     ollama: str = "llama3.1:8b"
+    openai: str = "gpt-4o-mini"
 
 
 class LLMSettings(BaseModel):
