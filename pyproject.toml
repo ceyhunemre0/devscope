@@ -47,7 +47,6 @@ packages = ["src/devscope"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "src/devscope/generators/prompts" = "devscope/generators/prompts"
-"src/devscope/web/templates" = "devscope/web/templates"
 
 [tool.ruff]
 line-length = 100
