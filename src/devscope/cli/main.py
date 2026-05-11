@@ -98,6 +98,24 @@ def projects_list() -> None:
 
 
 @app.command()
+def serve(
+    host: str = typer.Option("", "--host", help="Override bind host (default from config)."),
+    port: int = typer.Option(0, "--port", help="Override bind port (default from config)."),
+    reload: bool = typer.Option(False, "--reload", help="Auto-reload on code changes (dev)."),
+) -> None:
+    """Run the web dashboard."""
+    import uvicorn
+
+    settings = load_settings()
+    uvicorn.run(
+        "devscope.web.app:app",
+        host=host or settings.web.host,
+        port=port or settings.web.port,
+        reload=reload,
+    )
+
+
+@app.command()
 def today(
     since_hours: int = typer.Option(24, "--since-hours", "-s", help="Window size in hours."),
     provider: str = typer.Option(

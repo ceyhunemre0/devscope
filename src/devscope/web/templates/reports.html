@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}reports — devscope{% endblock %}
+{% block content %}
+<hgroup>
+  <h2>Reports</h2>
+  <p class="muted">{{ reports|length }} total</p>
+</hgroup>
+
+{% for r in reports %}
+<details>
+  <summary>
+    <strong>{{ r.type }}</strong>
+    <span class="muted">· {{ r.generated_at.strftime('%Y-%m-%d %H:%M UTC') }}</span>
+    {% if r.period_start and r.period_end %}
+      <span class="muted">· window: {{ r.period_start.strftime('%H:%M') }} → {{ r.period_end.strftime('%H:%M') }}</span>
+    {% endif %}
+  </summary>
+  <article class="report">{{ r.content }}</article>
+</details>
+{% else %}
+<p>No reports yet.</p>
+{% endfor %}
+{% endblock %}

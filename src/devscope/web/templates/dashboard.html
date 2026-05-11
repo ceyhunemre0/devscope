@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}dashboard — devscope{% endblock %}
+{% block content %}
+<hgroup>
+  <h2>Dashboard</h2>
+  <p class="muted">tracked projects: {{ project_count }} · recent standup reports: {{ report_count }}</p>
+</hgroup>
+
+<article>
+  <header>
+    <div class="actions">
+      <strong>Generate standup</strong>
+      <form hx-post="/actions/run-today" hx-target="#latest-report" hx-swap="innerHTML" hx-disabled-elt="find button">
+        <input type="hidden" name="since_hours" value="{{ default_since_hours }}" />
+        <select name="provider" aria-label="provider">
+          <option value="auto" selected>auto</option>
+          <option value="openai">openai</option>
+          <option value="ollama">ollama</option>
+        </select>
+        <input type="number" name="since_hours_override" min="1" max="720"
+               placeholder="hours" style="width: 6rem;" />
+        <button type="submit" class="btn-loading">Run</button>
+        <span class="htmx-indicator muted">generating…</span>
+      </form>
+    </div>
+  </header>
+  <div id="latest-report">
+    {% include "_latest_report.html" %}
+  </div>
+</article>
+{% endblock %}

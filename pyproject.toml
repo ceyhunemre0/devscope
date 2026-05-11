@@ -23,6 +23,9 @@ dependencies = [
     "tenacity>=8.5",
     "structlog>=24.1",
     "jinja2>=3.1",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]
@@ -33,6 +36,7 @@ dev = [
     "ruff>=0.5",
     "mypy>=1.10",
     "types-PyYAML",
+    "httpx>=0.27",
 ]
 
 [project.scripts]
@@ -43,6 +47,7 @@ packages = ["src/devscope"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "src/devscope/generators/prompts" = "devscope/generators/prompts"
+"src/devscope/web/templates" = "devscope/web/templates"
 
 [tool.ruff]
 line-length = 100
@@ -53,6 +58,7 @@ select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
 
 [tool.ruff.lint.per-file-ignores]
 "src/devscope/cli/*.py" = ["B008"]                 # Typer Argument/Option idiom
+"src/devscope/web/*.py" = ["B008"]                 # FastAPI Depends/Form idiom
 "src/devscope/storage/models.py" = ["RUF012"]      # SQLAlchemy type_annotation_map
 
 [tool.mypy]

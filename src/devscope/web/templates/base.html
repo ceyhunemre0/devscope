@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}devscope{% endblock %}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+  <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+  <style>
+    :root { --pico-font-size: 95%; }
+    nav.app { padding: 0.5rem 0; border-bottom: 1px solid var(--pico-muted-border-color); margin-bottom: 1.5rem; }
+    nav.app ul { display: flex; gap: 1rem; align-items: center; }
+    nav.app .brand { font-weight: 700; letter-spacing: -0.02em; }
+    .muted { color: var(--pico-muted-color); font-size: 0.85em; }
+    article.report { white-space: pre-wrap; }
+    .pill { background: var(--pico-muted-border-color); padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.8em; }
+    .actions { display: flex; gap: 0.5rem; align-items: center; }
+    .htmx-indicator { display: none; }
+    .htmx-request .htmx-indicator { display: inline; }
+    .htmx-request.btn-loading { opacity: 0.6; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <nav class="app">
+      <ul>
+        <li class="brand"><a href="/">devscope</a></li>
+        <li><a href="/projects">projects</a></li>
+        <li><a href="/reports">reports</a></li>
+      </ul>
+    </nav>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
