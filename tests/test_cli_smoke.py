@@ -1,10 +1,22 @@
 from pathlib import Path
+from unittest.mock import patch
 
 import pygit2
 import pytest
 from typer.testing import CliRunner
 
 from devscope.cli.main import app
+from devscope.llm.base import LLMResponse
+
+
+class FakeOllama:
+    name = "ollama"
+
+    async def complete(self, req):
+        return LLMResponse(
+            text="# Standup\n- did stuff\n",
+            prompt_tokens=20, output_tokens=10, cost_usd=0.0,
+        )
 
 
 @pytest.fixture
@@ -53,3 +65,22 @@ def test_projects_add_rejects_non_repo(isolated_home, tmp_path):
     result = runner.invoke(app, ["projects", "add", str(tmp_path), "--name", "x"])
     assert result.exit_code != 0
     assert "not a git" in result.output.lower()
+
+
+def test_today_runs_end_to_end(isolated_home, repo_path):
+    runner = CliRunner()
+    runner.invoke(app, ["init"])
+    runner.invoke(app, ["projects", "add", str(repo_path), "--name", "demo"])
+    with patch("devscope.cli.main.OllamaProvider", return_value=FakeOllama()):
+        result = runner.invoke(app, ["today"])
+    assert result.exit_code == 0, result.output
+    assert "Standup" in result.output
+
+
+def test_today_handles_no_activity(isolated_home, repo_path):
+    runner = CliRunner()
+    runner.invoke(app, ["init"])
+    runner.invoke(app, ["projects", "add", str(repo_path), "--name", "demo"])
+    result = runner.invoke(app, ["today", "--since-hours", "0"])
+    assert result.exit_code == 0
+    assert "no activity" in result.output.lower()

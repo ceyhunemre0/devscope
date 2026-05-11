@@ -1,14 +1,27 @@
 from __future__ import annotations
 
+import asyncio
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pygit2
 import typer
 from rich.console import Console
+from rich.markdown import Markdown
 from rich.table import Table
 
+from devscope.collectors.git_local import GitLocalCollector
 from devscope.config import load_settings
-from devscope.storage.repositories import ProjectRepo
+from devscope.generators.standup import StandupGenerator
+from devscope.llm.budget import BudgetGuard
+from devscope.llm.providers.ollama import OllamaProvider
+from devscope.llm.router import LLMRouter
+from devscope.storage.repositories import (
+    EventRepo,
+    LLMCallRepo,
+    ProjectRepo,
+    ReportRepo,
+)
 from devscope.storage.session import init_db, make_engine, session_factory
 
 app = typer.Typer(no_args_is_help=True, help="devscope — AI-powered dev productivity engine.")
@@ -76,3 +89,66 @@ def projects_list() -> None:
         table.add_row(p.name, p.path,
                       p.last_activity_at.isoformat() if p.last_activity_at else "—")
     console.print(table)
+
+
+@app.command()
+def today(
+    since_hours: int = typer.Option(24, "--since-hours", "-s",
+                                     help="Window size in hours."),
+) -> None:
+    """Generate a standup summary from the last N hours of activity across all projects."""
+    asyncio.run(_today_impl(since_hours))
+
+
+async def _today_impl(since_hours: int) -> None:
+    settings = load_settings()
+    engine = make_engine(settings.storage.db_path)
+    SessionLocal = session_factory(engine)
+
+    now = datetime.now(timezone.utc)
+    since = now - timedelta(hours=since_hours)
+
+    events_by_project: dict[str, list] = {}
+    with SessionLocal() as session:
+        projects = ProjectRepo(session).list_active()
+        event_repo = EventRepo(session)
+        for project in projects:
+            repo_path = Path(project.path)
+            if not (repo_path / ".git").exists():
+                continue
+            collector = GitLocalCollector(repo_path)
+            collected = collector.fetch(since=since)
+            for ev in collected:
+                event_repo.upsert(
+                    project_id=project.id,
+                    source=ev.source, type=ev.type, external_id=ev.external_id,
+                    payload=ev.payload, occurred_at=ev.occurred_at,
+                )
+            if collected:
+                events_by_project[project.name] = collected
+        session.commit()
+
+        llm_repo = LLMCallRepo(session)
+        guard = BudgetGuard(
+            repo=llm_repo,
+            monthly_usd=settings.llm.budget.monthly_usd,
+            hard_stop=settings.llm.budget.hard_stop,
+        )
+        router = LLMRouter(
+            chain=[OllamaProvider()],
+            guard=guard, repo=llm_repo,
+            model_for={"ollama": settings.llm.default_model.ollama},
+        )
+        generator = StandupGenerator(router=router)
+        output = await generator.run(
+            events_by_project=events_by_project, since=since, until=now,
+        )
+
+        ReportRepo(session).save(
+            project_id=None, type="standup", content=output.content,
+            period_start=since, period_end=now,
+            llm_call_id=None, generated_at=now,
+        )
+        session.commit()
+
+    console.print(Markdown(output.content))
