@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -22,6 +21,7 @@ from devscope.llm.budget import BudgetGuard
 from devscope.llm.providers.ollama import OllamaProvider
 from devscope.llm.providers.openai import OpenAIProvider
 from devscope.llm.router import LLMRouter
+from devscope.secrets import has_secret
 from devscope.storage.repositories import (
     EventRepo,
     LLMCallRepo,
@@ -133,13 +133,16 @@ def today(
 def _build_chain(
     provider_choice: str, settings: Settings
 ) -> tuple[list[LLMProvider], dict[str, str]]:
-    has_openai = bool(os.environ.get("OPENAI_API_KEY"))
+    has_openai = has_secret("OPENAI_API_KEY")
     if provider_choice == "auto":
         provider_choice = "openai" if has_openai else "ollama"
 
     if provider_choice == "openai":
         if not has_openai:
-            raise typer.BadParameter("--provider openai requires OPENAI_API_KEY env var.")
+            raise typer.BadParameter(
+                "--provider openai requires an OpenAI key. "
+                "Set OPENAI_API_KEY env var or save it via the web UI (/settings)."
+            )
         return [OpenAIProvider()], {"openai": settings.llm.default_model.openai}
     if provider_choice == "ollama":
         return [OllamaProvider()], {"ollama": settings.llm.default_model.ollama}

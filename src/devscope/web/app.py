@@ -1,15 +1,22 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from devscope.cli.main import _build_chain, _today_impl
 from devscope.config import Settings, load_settings
+from devscope.secrets import (
+    delete_secret,
+    get_secret,
+    mask,
+    set_secret,
+)
 from devscope.storage.repositories import ProjectRepo, ReportRepo
 from devscope.storage.session import init_db, make_engine, session_factory
 
@@ -59,6 +66,38 @@ def create_app() -> FastAPI:
         with get_session() as session:
             reports = ReportRepo(session).list_by_type("standup")
         return templates.TemplateResponse(request, "reports.html", {"reports": reports})
+
+    def _settings_context(flash: str | None = None) -> dict[str, object]:
+        env_value = os.environ.get("OPENAI_API_KEY")
+        stored = get_secret("OPENAI_API_KEY")  # env wins; we still want to know if file has it
+        from devscope.secrets import _load_file  # internal: read file directly
+
+        file_keys = _load_file()
+        return {
+            "secrets_path": str(settings.storage.home / ".env"),
+            "openai_env": bool(env_value),
+            "openai_stored": "OPENAI_API_KEY" in file_keys,
+            "openai_masked": mask(stored),
+            "flash": flash,
+        }
+
+    @app.get("/settings", response_class=HTMLResponse)
+    def settings_view(request: Request) -> HTMLResponse:
+        return templates.TemplateResponse(request, "settings.html", _settings_context())
+
+    @app.post("/settings")
+    def settings_save(
+        request: Request,
+        openai_api_key: Annotated[str, Form()] = "",
+        action: Annotated[str, Form()] = "save",
+    ) -> RedirectResponse:
+        if action == "clear":
+            delete_secret("OPENAI_API_KEY")
+        else:
+            key = openai_api_key.strip()
+            if key:
+                set_secret("OPENAI_API_KEY", key)
+        return RedirectResponse(url="/settings", status_code=303)
 
     @app.post("/actions/run-today", response_class=HTMLResponse)
     async def run_today(

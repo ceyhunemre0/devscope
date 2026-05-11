@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import os
-
 import httpx
 
 from devscope.llm.base import (
@@ -10,6 +8,7 @@ from devscope.llm.base import (
     ProviderError,
     RateLimitError,
 )
+from devscope.secrets import get_secret
 
 # Approximate USD pricing per 1M tokens for common chat models.
 # Update as needed; falls back to 0.0 if model not found.
@@ -42,7 +41,7 @@ class OpenAIProvider:
         transport: httpx.AsyncBaseTransport | None = None,
         timeout: float = 120.0,
     ) -> None:
-        self._api_key = api_key or os.environ.get("OPENAI_API_KEY", "")
+        self._api_key = api_key if api_key is not None else (get_secret("OPENAI_API_KEY") or "")
         self._base_url = base_url.rstrip("/")
         self._transport = transport
         self._timeout = timeout

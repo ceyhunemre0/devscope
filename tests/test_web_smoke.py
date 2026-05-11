@@ -91,3 +91,50 @@ def test_reports_page_shows_existing_reports(isolated_home):
     resp = client.get("/reports")
     assert resp.status_code == 200
     assert "shipped storage layer" in resp.text
+
+
+def test_settings_save_persists_openai_key(isolated_home, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    client = _client(isolated_home)
+
+    # Initial: not configured
+    resp = client.get("/settings")
+    assert resp.status_code == 200
+    assert "not configured" in resp.text
+
+    # Save
+    resp = client.post(
+        "/settings",
+        data={"openai_api_key": "sk-abc1234567890"},
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+    assert "stored" in resp.text
+    assert "…7890" in resp.text  # masked
+
+    # Persisted to file
+    env_file = isolated_home / ".env"
+    assert env_file.exists()
+    assert "OPENAI_API_KEY=sk-abc1234567890" in env_file.read_text()
+
+
+def test_settings_clear_removes_openai_key(isolated_home, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    client = _client(isolated_home)
+    client.post("/settings", data={"openai_api_key": "sk-abc"})
+
+    resp = client.post(
+        "/settings",
+        data={"openai_api_key": "", "action": "clear"},
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+    assert "not configured" in resp.text
+
+
+def test_settings_shows_env_var_active_when_set(isolated_home, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-from-env")
+    client = _client(isolated_home)
+    resp = client.get("/settings")
+    assert resp.status_code == 200
+    assert "env var active" in resp.text
