@@ -31,6 +31,10 @@ htmlcov/
 *.db
 *.db-journal
 
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
 # AI artifacts — never committed
 docs/superpowers/
 .claude/
