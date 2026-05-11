@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import func, select
@@ -14,7 +14,7 @@ class ProjectRepo:
         self.session = session
 
     def create(self, name: str, path: str) -> Project:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         p = Project(name=name, path=path, state="active", created_at=now, updated_at=now)
         self.session.add(p)
         self.session.flush()
@@ -50,9 +50,13 @@ class EventRepo:
         if existing is not None:
             return existing
         ev = Event(
-            project_id=project_id, source=source, type=type, external_id=external_id,
-            payload=payload, occurred_at=occurred_at,
-            collected_at=datetime.now(timezone.utc),
+            project_id=project_id,
+            source=source,
+            type=type,
+            external_id=external_id,
+            payload=payload,
+            occurred_at=occurred_at,
+            collected_at=datetime.now(UTC),
         )
         self.session.add(ev)
         self.session.flush()
@@ -86,10 +90,16 @@ class LLMCallRepo:
         called_at: datetime,
     ) -> LLMCall:
         row = LLMCall(
-            provider=provider, model=model, purpose=purpose,
-            prompt_tokens=prompt_tokens, output_tokens=output_tokens,
-            cost_usd=cost_usd, duration_ms=duration_ms,
-            succeeded=succeeded, error=error, called_at=called_at,
+            provider=provider,
+            model=model,
+            purpose=purpose,
+            prompt_tokens=prompt_tokens,
+            output_tokens=output_tokens,
+            cost_usd=cost_usd,
+            duration_ms=duration_ms,
+            succeeded=succeeded,
+            error=error,
+            called_at=called_at,
         )
         self.session.add(row)
         self.session.flush()
@@ -118,9 +128,13 @@ class ReportRepo:
         generated_at: datetime,
     ) -> Report:
         r = Report(
-            project_id=project_id, type=type, content=content,
-            period_start=period_start, period_end=period_end,
-            llm_call_id=llm_call_id, generated_at=generated_at,
+            project_id=project_id,
+            type=type,
+            content=content,
+            period_start=period_start,
+            period_end=period_end,
+            llm_call_id=llm_call_id,
+            generated_at=generated_at,
         )
         self.session.add(r)
         self.session.flush()

@@ -54,13 +54,13 @@ def load_settings() -> Settings:
     home.mkdir(parents=True, exist_ok=True)
     config_file = home / "config.toml"
 
-    raw: dict = {}
+    raw: dict[str, dict[str, object]] = {}
     if config_file.exists():
         with config_file.open("rb") as f:
             raw = tomllib.load(f)
 
-    raw.setdefault("storage", {})
-    raw["storage"].setdefault("db_path", str(home / "devscope.db"))
-    raw["storage"].setdefault("home", str(home))
+    storage = raw.setdefault("storage", {})
+    storage.setdefault("db_path", str(home / "devscope.db"))
+    storage.setdefault("home", str(home))
 
     return Settings.model_validate(raw)

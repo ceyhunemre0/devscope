@@ -4,7 +4,7 @@ from pathlib import Path
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 from devscope.storage.models import Base
 
@@ -18,5 +18,5 @@ def init_db(engine: Engine) -> None:
     Base.metadata.create_all(engine)
 
 
-def session_factory(engine: Engine):
+def session_factory(engine: Engine) -> sessionmaker[Session]:
     return sessionmaker(engine, future=True, expire_on_commit=False)

@@ -15,7 +15,11 @@ _PROMPT_DIR = Path(__file__).parent / "prompts"
 
 class _RouterLike(Protocol):
     async def complete(
-        self, *, prompt: str, purpose: str, max_tokens: int = 1500,
+        self,
+        *,
+        prompt: str,
+        purpose: str,
+        max_tokens: int = 1500,
         temperature: float = 0.2,
     ) -> LLMResponse: ...
 
@@ -41,7 +45,7 @@ class StandupGenerator:
         if total == 0:
             return GeneratorOutput(
                 content=f"_No activity recorded between {since:%Y-%m-%d %H:%M} "
-                        f"and {until:%Y-%m-%d %H:%M} (UTC)._",
+                f"and {until:%Y-%m-%d %H:%M} (UTC)._",
                 purpose="standup",
             )
 

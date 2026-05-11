@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import ForeignKey, JSON, String, Text, UniqueConstraint
+from sqlalchemy import JSON, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -27,10 +27,10 @@ class Project(Base):
     created_at: Mapped[datetime]
     updated_at: Mapped[datetime]
 
-    events: Mapped[list["Event"]] = relationship(back_populates="project",
-                                                 cascade="all, delete-orphan")
-    ideas: Mapped[list["Idea"]] = relationship(back_populates="project",
-                                               cascade="all, delete-orphan")
+    events: Mapped[list[Event]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
+    )
+    ideas: Mapped[list[Idea]] = relationship(back_populates="project", cascade="all, delete-orphan")
 
 
 class Event(Base):
@@ -81,9 +81,7 @@ class Report(Base):
     __tablename__ = "reports"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    project_id: Mapped[int | None] = mapped_column(
-        ForeignKey("projects.id", ondelete="SET NULL")
-    )
+    project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id", ondelete="SET NULL"))
     type: Mapped[str] = mapped_column(String)
     period_start: Mapped[datetime | None] = mapped_column(default=None)
     period_end: Mapped[datetime | None] = mapped_column(default=None)

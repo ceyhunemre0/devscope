@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pygit2
@@ -9,9 +9,12 @@ import typer
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.table import Table
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import Session, sessionmaker
 
+from devscope.collectors.base import Event
 from devscope.collectors.git_local import GitLocalCollector
-from devscope.config import load_settings
+from devscope.config import Settings, load_settings
 from devscope.generators.standup import StandupGenerator
 from devscope.llm.budget import BudgetGuard
 from devscope.llm.providers.ollama import OllamaProvider
@@ -31,7 +34,7 @@ app.add_typer(projects_app, name="projects")
 console = Console()
 
 
-def _engine_session_factory():
+def _engine_session_factory() -> tuple[Engine, sessionmaker[Session], Settings]:
     settings = load_settings()
     engine = make_engine(settings.storage.db_path)
     return engine, session_factory(engine), settings
@@ -51,8 +54,9 @@ def init() -> None:
 
 @projects_app.command("add")
 def projects_add(
-    path: Path = typer.Argument(..., exists=True, file_okay=False, dir_okay=True,
-                                resolve_path=True),
+    path: Path = typer.Argument(
+        ..., exists=True, file_okay=False, dir_okay=True, resolve_path=True
+    ),
     name: str = typer.Option(..., "--name", "-n", help="Friendly name for the project."),
 ) -> None:
     """Register a local git repository as a tracked project."""
@@ -86,15 +90,13 @@ def projects_list() -> None:
         repos = ProjectRepo(session).list_active()
     table = Table("name", "path", "last activity")
     for p in repos:
-        table.add_row(p.name, p.path,
-                      p.last_activity_at.isoformat() if p.last_activity_at else "—")
+        table.add_row(p.name, p.path, p.last_activity_at.isoformat() if p.last_activity_at else "—")
     console.print(table)
 
 
 @app.command()
 def today(
-    since_hours: int = typer.Option(24, "--since-hours", "-s",
-                                     help="Window size in hours."),
+    since_hours: int = typer.Option(24, "--since-hours", "-s", help="Window size in hours."),
 ) -> None:
     """Generate a standup summary from the last N hours of activity across all projects."""
     asyncio.run(_today_impl(since_hours))
@@ -105,10 +107,10 @@ async def _today_impl(since_hours: int) -> None:
     engine = make_engine(settings.storage.db_path)
     SessionLocal = session_factory(engine)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     since = now - timedelta(hours=since_hours)
 
-    events_by_project: dict[str, list] = {}
+    events_by_project: dict[str, list[Event]] = {}
     with SessionLocal() as session:
         projects = ProjectRepo(session).list_active()
         event_repo = EventRepo(session)
@@ -121,8 +123,11 @@ async def _today_impl(since_hours: int) -> None:
             for ev in collected:
                 event_repo.upsert(
                     project_id=project.id,
-                    source=ev.source, type=ev.type, external_id=ev.external_id,
-                    payload=ev.payload, occurred_at=ev.occurred_at,
+                    source=ev.source,
+                    type=ev.type,
+                    external_id=ev.external_id,
+                    payload=ev.payload,
+                    occurred_at=ev.occurred_at,
                 )
             if collected:
                 events_by_project[project.name] = collected
@@ -136,18 +141,25 @@ async def _today_impl(since_hours: int) -> None:
         )
         router = LLMRouter(
             chain=[OllamaProvider()],
-            guard=guard, repo=llm_repo,
+            guard=guard,
+            repo=llm_repo,
             model_for={"ollama": settings.llm.default_model.ollama},
         )
         generator = StandupGenerator(router=router)
         output = await generator.run(
-            events_by_project=events_by_project, since=since, until=now,
+            events_by_project=events_by_project,
+            since=since,
+            until=now,
         )
 
         ReportRepo(session).save(
-            project_id=None, type="standup", content=output.content,
-            period_start=since, period_end=now,
-            llm_call_id=None, generated_at=now,
+            project_id=None,
+            type="standup",
+            content=output.content,
+            period_start=since,
+            period_end=now,
+            llm_call_id=None,
+            generated_at=now,
         )
         session.commit()
 

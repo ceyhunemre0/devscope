@@ -15,7 +15,9 @@ class FakeOllama:
     async def complete(self, req):
         return LLMResponse(
             text="# Standup\n- did stuff\n",
-            prompt_tokens=20, output_tokens=10, cost_usd=0.0,
+            prompt_tokens=20,
+            output_tokens=10,
+            cost_usd=0.0,
         )
 
 

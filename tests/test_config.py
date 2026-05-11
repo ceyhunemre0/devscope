@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from devscope.config import Settings, load_settings
+from devscope.config import load_settings
 
 
 def test_default_settings_have_sensible_defaults(tmp_path: Path, monkeypatch):
@@ -31,6 +31,7 @@ def test_settings_loads_from_toml(tmp_path: Path, monkeypatch):
 def test_settings_is_validated(tmp_path: Path, monkeypatch):
     import pytest
     from pydantic import ValidationError
+
     monkeypatch.setenv("DEVSCOPE_HOME", str(tmp_path))
     (tmp_path / "config.toml").write_text(
         """

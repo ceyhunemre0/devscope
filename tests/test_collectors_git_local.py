@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pygit2
@@ -30,7 +30,7 @@ def tmp_repo(tmp_path: Path) -> Path:
 
 def test_git_local_collector_returns_commits_in_range(tmp_repo):
     collector = GitLocalCollector(tmp_repo)
-    since = datetime.now(timezone.utc) - timedelta(minutes=5)
+    since = datetime.now(UTC) - timedelta(minutes=5)
     events = collector.fetch(since=since)
     assert len(events) == 2
     messages = {e.payload["message_summary"] for e in events}
@@ -39,13 +39,13 @@ def test_git_local_collector_returns_commits_in_range(tmp_repo):
 
 def test_git_local_collector_filters_by_since(tmp_repo):
     collector = GitLocalCollector(tmp_repo)
-    future = datetime.now(timezone.utc) + timedelta(days=1)
+    future = datetime.now(UTC) + timedelta(days=1)
     assert collector.fetch(since=future) == []
 
 
 def test_git_local_collector_event_fields(tmp_repo):
     collector = GitLocalCollector(tmp_repo)
-    since = datetime.now(timezone.utc) - timedelta(minutes=5)
+    since = datetime.now(UTC) - timedelta(minutes=5)
     events = collector.fetch(since=since)
     e = events[0]
     assert e.source == "git_local"

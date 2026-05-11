@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import warnings
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from devscope.llm.base import BudgetExceededError
 from devscope.storage.repositories import LLMCallRepo
@@ -16,7 +16,7 @@ class BudgetGuard:
     def check(self) -> None:
         if self.monthly_usd <= 0:
             return
-        since = datetime.now(timezone.utc) - timedelta(days=30)
+        since = datetime.now(UTC) - timedelta(days=30)
         spent = self.repo.sum_cost_since(since)
         if spent < self.monthly_usd:
             return

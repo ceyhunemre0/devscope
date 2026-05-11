@@ -13,9 +13,16 @@ from devscope.storage.repositories import LLMCallRepo
 
 
 class FakeProvider:
-    def __init__(self, name: str, *, raises: Exception | None = None,
-                 text: str = "ok", prompt_tokens: int = 5,
-                 output_tokens: int = 7, cost: float = 0.001) -> None:
+    def __init__(
+        self,
+        name: str,
+        *,
+        raises: Exception | None = None,
+        text: str = "ok",
+        prompt_tokens: int = 5,
+        output_tokens: int = 7,
+        cost: float = 0.001,
+    ) -> None:
         self.name = name
         self.raises = raises
         self.text = text
@@ -28,8 +35,12 @@ class FakeProvider:
         self.calls += 1
         if self.raises:
             raise self.raises
-        return LLMResponse(text=self.text, prompt_tokens=self.prompt_tokens,
-                           output_tokens=self.output_tokens, cost_usd=self.cost)
+        return LLMResponse(
+            text=self.text,
+            prompt_tokens=self.prompt_tokens,
+            output_tokens=self.output_tokens,
+            cost_usd=self.cost,
+        )
 
 
 @pytest.mark.asyncio
@@ -38,8 +49,7 @@ async def test_router_uses_first_provider_when_ok(db_session, now):
     guard = BudgetGuard(repo=repo, monthly_usd=10.0, hard_stop=True)
     p1 = FakeProvider("p1")
     p2 = FakeProvider("p2")
-    router = LLMRouter(chain=[p1, p2], guard=guard, repo=repo,
-                       model_for={"p1": "m1", "p2": "m2"})
+    router = LLMRouter(chain=[p1, p2], guard=guard, repo=repo, model_for={"p1": "m1", "p2": "m2"})
     resp = await router.complete(prompt="hi", purpose="standup")
     assert resp.text == "ok"
     assert p1.calls == 1
@@ -52,8 +62,7 @@ async def test_router_falls_through_to_next_on_provider_error(db_session, now):
     guard = BudgetGuard(repo=repo, monthly_usd=10.0, hard_stop=True)
     p1 = FakeProvider("p1", raises=ProviderError("nope"))
     p2 = FakeProvider("p2", text="second")
-    router = LLMRouter(chain=[p1, p2], guard=guard, repo=repo,
-                       model_for={"p1": "m1", "p2": "m2"})
+    router = LLMRouter(chain=[p1, p2], guard=guard, repo=repo, model_for={"p1": "m1", "p2": "m2"})
     resp = await router.complete(prompt="hi", purpose="standup")
     assert resp.text == "second"
     assert p1.calls == 1
@@ -66,9 +75,14 @@ async def test_router_retries_on_rate_limit_then_falls_through(db_session, now):
     guard = BudgetGuard(repo=repo, monthly_usd=10.0, hard_stop=True)
     p1 = FakeProvider("p1", raises=RateLimitError("429"))
     p2 = FakeProvider("p2", text="second")
-    router = LLMRouter(chain=[p1, p2], guard=guard, repo=repo,
-                       model_for={"p1": "m1", "p2": "m2"},
-                       max_retries_per_provider=3, retry_initial_seconds=0.0)
+    router = LLMRouter(
+        chain=[p1, p2],
+        guard=guard,
+        repo=repo,
+        model_for={"p1": "m1", "p2": "m2"},
+        max_retries_per_provider=3,
+        retry_initial_seconds=0.0,
+    )
     resp = await router.complete(prompt="hi", purpose="standup")
     assert resp.text == "second"
     assert p1.calls == 3
@@ -93,7 +107,6 @@ async def test_router_raises_when_all_providers_fail(db_session, now):
     guard = BudgetGuard(repo=repo, monthly_usd=10.0, hard_stop=True)
     p1 = FakeProvider("p1", raises=ProviderError("a"))
     p2 = FakeProvider("p2", raises=ProviderError("b"))
-    router = LLMRouter(chain=[p1, p2], guard=guard, repo=repo,
-                       model_for={"p1": "m1", "p2": "m2"})
+    router = LLMRouter(chain=[p1, p2], guard=guard, repo=repo, model_for={"p1": "m1", "p2": "m2"})
     with pytest.raises(AllProvidersFailedError):
         await router.complete(prompt="hi", purpose="standup")

@@ -12,7 +12,7 @@ class OllamaProvider:
         self,
         *,
         base_url: str = "http://localhost:11434",
-        transport: httpx.AsyncBaseTransport | httpx.BaseTransport | None = None,
+        transport: httpx.AsyncBaseTransport | None = None,
         timeout: float = 120.0,
     ) -> None:
         self._base_url = base_url.rstrip("/")

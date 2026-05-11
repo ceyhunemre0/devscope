@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 
 import pygit2
+from pygit2.enums import SortMode
 
 from devscope.collectors.base import Event
 
@@ -14,15 +16,15 @@ class GitLocalCollector:
 
     def fetch(self, *, since: datetime) -> list[Event]:
         if since.tzinfo is None:
-            since = since.replace(tzinfo=timezone.utc)
+            since = since.replace(tzinfo=UTC)
 
         repo = pygit2.Repository(str(self._repo_path))
         if repo.is_empty or repo.head_is_unborn:
             return []
 
         events: list[Event] = []
-        for commit in repo.walk(repo.head.target, pygit2.GIT_SORT_TIME):
-            occurred = datetime.fromtimestamp(commit.commit_time, tz=timezone.utc)
+        for commit in repo.walk(repo.head.target, SortMode.TIME):
+            occurred = datetime.fromtimestamp(commit.commit_time, tz=UTC)
             if occurred < since:
                 break
             events.append(
@@ -31,8 +33,7 @@ class GitLocalCollector:
                     type="commit",
                     external_id=str(commit.id),
                     payload={
-                        "message_summary": commit.message.splitlines()[0]
-                        if commit.message else "",
+                        "message_summary": commit.message.splitlines()[0] if commit.message else "",
                         "message_body": commit.message,
                         "author_name": commit.author.name,
                         "author_email": commit.author.email,
@@ -49,15 +50,18 @@ def _files_changed(repo: pygit2.Repository, commit: pygit2.Commit) -> list[str]:
         return _walk_tree(repo, commit.tree)
     parent = commit.parents[0]
     diff = repo.diff(parent, commit)
-    return [patch.delta.new_file.path for patch in diff]
+    if diff is None:
+        return []
+    return [patch.delta.new_file.path for patch in diff if patch is not None]
 
 
 def _walk_tree(repo: pygit2.Repository, tree: pygit2.Tree, prefix: str = "") -> list[str]:
     paths: list[str] = []
     for entry in tree:
+        name = entry.name or ""
         if entry.type_str == "tree":
-            subtree = repo[entry.id]
-            paths.extend(_walk_tree(repo, subtree, prefix + entry.name + "/"))
+            subtree = cast("pygit2.Tree", repo[entry.id])
+            paths.extend(_walk_tree(repo, subtree, prefix + name + "/"))
         else:
-            paths.append(prefix + entry.name)
+            paths.append(prefix + name)
     return paths
