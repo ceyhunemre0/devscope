@@ -1,0 +1,70 @@
+// TypeScript interfaces mirroring the Python Pydantic models in src/devscope/web/app.py
+// Datetime fields use ISO 8601 strings (FastAPI default serialization).
+
+export interface HealthOut {
+  ok: boolean;
+  version: string;
+}
+
+export interface ProjectOut {
+  id: number;
+  name: string;
+  path: string;
+  state: string;
+  summary: string | null;
+  tech_stack: string[] | null;
+  last_activity_at: string | null;
+}
+
+export interface ReportOut {
+  id: number;
+  type: string;
+  content: string;
+  period_start: string | null;
+  period_end: string | null;
+  generated_at: string;
+}
+
+export interface DashboardOut {
+  project_count: number;
+  report_count: number;
+  latest: ReportOut | null;
+  openai_stored: boolean;
+  openai_env_active: boolean;
+  ollama_default_model: string;
+  openai_default_model: string;
+}
+
+export interface DiscoveredRepo {
+  path: string;
+  suggested_name: string;
+}
+
+export interface SettingsOut {
+  secrets_path: string;
+  openai_env_active: boolean;
+  openai_stored: boolean;
+  openai_masked: string;
+}
+
+// Request bodies
+
+export interface AddProjectIn {
+  path: string;
+  name: string;
+}
+
+export interface DiscoverIn {
+  root: string;
+  depth?: number;
+}
+
+export interface RunTodayIn {
+  since_hours?: number;
+  provider?: string;
+}
+
+export interface SettingsIn {
+  openai_api_key?: string;
+  clear_openai?: boolean;
+}
