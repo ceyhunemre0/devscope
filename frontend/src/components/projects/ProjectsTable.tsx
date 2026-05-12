@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ReportListItem } from "@/components/ReportListItem";
 import { ProjectCommitSuggester } from "@/components/projects/ProjectCommitSuggester";
+import { ProjectActions } from "@/components/projects/ProjectActions";
 import { openExternal } from "@/lib/external";
 import {
   Table,
@@ -334,6 +335,10 @@ export function ProjectsTable() {
                             </h4>
                             <ProjectReports projectId={project.id} />
                           </div>
+                          <ProjectActions
+                            projectId={project.id}
+                            currentName={project.name}
+                          />
                         </TableCell>
                       </TableRow>
                     )}

@@ -56,6 +56,10 @@ export interface AddProjectIn {
   name: string;
 }
 
+export interface UpdateProjectIn {
+  name: string;
+}
+
 export interface DiscoverIn {
   root: string;
   depth?: number;

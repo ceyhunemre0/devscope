@@ -12,6 +12,7 @@ import type {
   SettingsOut,
   SuggestCommitIn,
   SuggestCommitOut,
+  UpdateProjectIn,
   WorkingTreeStatusOut,
   GitHubStatusOut,
   GitHubTokenIn,
@@ -55,6 +56,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(res.status, detail);
   }
 
+  if (res.status === 204) {
+    return undefined as T;
+  }
   return res.json() as Promise<T>;
 }
 
@@ -64,6 +68,13 @@ export const api = {
   listProjects: () => request<ProjectOut[]>('/projects'),
   addProject: (body: AddProjectIn) =>
     request<ProjectOut>('/projects', { method: 'POST', body: JSON.stringify(body) }),
+  updateProject: (projectId: number, body: UpdateProjectIn) =>
+    request<ProjectOut>(`/projects/${projectId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  deleteProject: (projectId: number) =>
+    request<void>(`/projects/${projectId}`, { method: 'DELETE' }),
   discoverProjects: (body: DiscoverIn) =>
     request<DiscoveredRepo[]>('/projects/discover', { method: 'POST', body: JSON.stringify(body) }),
   bulkAddProjects: (items: AddProjectIn[]) =>

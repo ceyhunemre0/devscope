@@ -129,6 +129,10 @@ class AddProjectIn(BaseModel):
     name: str = Field(min_length=1, max_length=64)
 
 
+class UpdateProjectIn(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+
+
 class DiscoverIn(BaseModel):
     root: str
     depth: int = Field(default=3, ge=1, le=6)
@@ -348,6 +352,36 @@ def create_app() -> FastAPI:
             project = repo.create(name=body.name, path=str(repo_path))
             s.commit()
             return _project_to_out(project)
+
+    @app.patch("/api/projects/{project_id}", response_model=ProjectOut)
+    def update_project(project_id: int, body: UpdateProjectIn) -> ProjectOut:
+        new_name = body.name.strip()
+        if not new_name:
+            raise HTTPException(400, "name must not be empty")
+        with session() as s:
+            project = s.get(Project, project_id)
+            if project is None:
+                raise HTTPException(404, f"project {project_id} not found")
+            if project.name != new_name:
+                repo = ProjectRepo(s)
+                if repo.get_by_name(new_name) is not None:
+                    raise HTTPException(
+                        409, f"project named '{new_name}' already exists"
+                    )
+                project.name = new_name
+            project.updated_at = datetime.now(UTC)
+            s.commit()
+            s.refresh(project)
+            return _project_to_out(project)
+
+    @app.delete("/api/projects/{project_id}", status_code=204)
+    def delete_project(project_id: int) -> None:
+        with session() as s:
+            project = s.get(Project, project_id)
+            if project is None:
+                raise HTTPException(404, f"project {project_id} not found")
+            s.delete(project)
+            s.commit()
 
     @app.post("/api/projects/discover", response_model=list[DiscoveredRepo])
     def discover(body: DiscoverIn) -> list[DiscoveredRepo]:
