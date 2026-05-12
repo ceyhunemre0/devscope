@@ -1,0 +1,30 @@
+---
+source: tests/prompts.rs
+expression: out
+---
+You will be given a git diff. Identify the DISTINCT logical changes in it.
+
+RULES:
+- One bullet per distinct change. Maximum 5 bullets.
+- Each bullet is one short phrase (≤80 chars). Focus on user-facing or behavioral changes, not low-level refactors that are part of a larger change.
+- If two diff hunks serve the same purpose (e.g. type change + matching call-site updates), they are ONE change. Combine them.
+- If unrelated changes co-exist (e.g. a feature AND an unrelated bug fix), list them separately.
+- Use direct verbs: "add", "fix", "rename", "remove", "switch", "validate", "guard".
+- Output ONLY the bullets. No headers, no preamble, no markdown code fences, no explanations.
+
+Repository status (`git status --short`):
+
+```
+?? new.txt
+```
+
+
+Diff:
+
+```diff
+@@ +foo
+```
+
+
+
+NOTE: The diff was truncated. Base your list on the visible portion plus the status output.

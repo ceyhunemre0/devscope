@@ -1,0 +1,29 @@
+---
+source: tests/prompts.rs
+expression: out
+---
+You are a concise engineering coach. Summarize this developer's work for a daily standup.
+
+Window: 2026-05-12T08:00:00Z to 2026-05-12T18:00:00Z (UTC).
+
+Activity:
+
+## demo
+
+- (10:30) add login button
+  files: ui/Login.tsx, tests/login.spec.ts
+
+
+
+Produce markdown with three sections:
+
+### Yesterday/Today
+Bullet list, group by project. Use the commit messages above; do not invent.
+
+### Themes
+One line. What's the through-line of this work?
+
+### Suggested next step
+One concrete next action, grounded in the actual activity. Skip if nothing fits.
+
+Keep it under 200 words total. No fluff.
