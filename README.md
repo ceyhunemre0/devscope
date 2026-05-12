@@ -44,9 +44,15 @@ Açtığınızda devscope açılır. Yapılması gerekenler:
 2. **Projects** sekmesinden bir veya birkaç git deposunun yolunu ekleyin (`~/code/my-app` gibi).
 3. **Dashboard** sekmesinde "Run today's summary"e basın — son 24 saatin özetini görürsünüz.
 
-> Notlar
-> - macOS'ta uygulama imzalı değilse Gatekeeper uyarı verebilir. Bu durumda: Finder → uygulamayı sağ tıklayın → Open → Open. Sonraki açılışlarda sormaz.
-> - Windows SmartScreen "Daha fazla bilgi" altında "Yine de çalıştır"a basmanız yeterli.
+> Notlar — kod imzalı değiliz (Apple Developer / Authenticode yok):
+>
+> **macOS:** İlk açılışta splash ekranında *"Backend couldn't start: backend not reachable…"* görürseniz, sebep macOS Gatekeeper'ın DMG'den kopyalanan içindeki imzasız Python sidecar binary'lerine `com.apple.quarantine` xattr'ı eklemesi. Tek seferlik çözüm — Terminal'de:
+> ```bash
+> xattr -dr com.apple.quarantine /Applications/devscope.app
+> ```
+> Uygulamayı kapatıp tekrar açın. Sonraki başlatmalarda sormaz.
+>
+> **Windows:** SmartScreen "Daha fazla bilgi" → "Yine de çalıştır".
 
 İlk sürüm henüz yayımlanmamışsa [Kaynaktan kurulum (geliştiriciler)](#kaynaktan-kurulum-geliştiriciler) bölümüne bakın.
 
@@ -120,6 +126,7 @@ Klasörü taşımak isterseniz `DEVSCOPE_HOME` ortam değişkenini ayarlayın.
 
 | Sorun                                                          | Çözüm                                                                          |
 |----------------------------------------------------------------|--------------------------------------------------------------------------------|
+| macOS: "Backend couldn't start: backend not reachable…"        | `xattr -dr com.apple.quarantine /Applications/devscope.app` (imzasız sidecar quarantine'ı). |
 | macOS: "devscope bozuk / açılamaz"                             | Finder'da sağ tık → Open → Open. Apple imzalı değil; manuel onay yeterli.       |
 | Windows SmartScreen uyarısı                                    | "Daha fazla bilgi" → "Yine de çalıştır".                                       |
 | Linux'ta AppImage çalışmıyor                                   | `chmod +x devscope*.AppImage && ./devscope*.AppImage`.                          |
