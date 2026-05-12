@@ -38,6 +38,7 @@ frontend/dist/
 # Tauri
 src-tauri/target/
 src-tauri/gen/
+src-tauri/binaries/
 
 # AI artifacts — never committed
 docs/superpowers/

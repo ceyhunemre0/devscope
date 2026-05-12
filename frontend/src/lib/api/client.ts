@@ -1,3 +1,4 @@
+import { resolveBaseUrl } from './base';
 import type {
   AddProjectIn,
   DashboardOut,
@@ -10,8 +11,6 @@ import type {
   SettingsIn,
   SettingsOut,
 } from './types';
-
-const BASE = '/api';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -26,12 +25,14 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const base = await resolveBaseUrl();
+
   const headers: Record<string, string> = {
     ...(init?.body != null ? { 'Content-Type': 'application/json' } : {}),
     ...(init?.headers as Record<string, string> | undefined),
   };
 
-  const res = await fetch(`${BASE}${path}`, { ...init, headers });
+  const res = await fetch(`${base}${path}`, { ...init, headers });
 
   if (!res.ok) {
     let detail = res.statusText;

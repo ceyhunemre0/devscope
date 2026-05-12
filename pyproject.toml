@@ -37,10 +37,12 @@ dev = [
     "mypy>=1.10",
     "types-PyYAML",
     "httpx>=0.27",
+    "pyinstaller>=6.10",
 ]
 
 [project.scripts]
 devscope = "devscope.cli.main:app"
+devscope-backend = "devscope.server_main:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/devscope"]
