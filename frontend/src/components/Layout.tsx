@@ -1,9 +1,11 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   FolderGit2,
   BarChart3,
+  Sparkles,
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -14,6 +16,7 @@ const NAV_ITEMS = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard", end: true },
   { to: "/projects", icon: FolderGit2, label: "Projects", end: false },
   { to: "/analytics", icon: BarChart3, label: "Analytics", end: false },
+  { to: "/summaries", icon: Sparkles, label: "Summaries", end: false },
   { to: "/settings", icon: Settings, label: "Settings", end: false },
 ];
 
@@ -23,6 +26,11 @@ interface LayoutProps {
 
 function Sidebar() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const navRef = useRef<HTMLElement>(null);
+  const [indicator, setIndicator] = useState<{ top: number; height: number } | null>(null);
+  const [animateIndicator, setAnimateIndicator] = useState(false);
+
   const { data: health } = useQuery({
     queryKey: ["health"],
     queryFn: api.health,
@@ -35,6 +43,29 @@ function Sidebar() {
   });
 
   const signedIn = !!github?.configured && !!github.login;
+
+  useLayoutEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+    const active = nav.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!active) {
+      setIndicator(null);
+      return;
+    }
+    const navRect = nav.getBoundingClientRect();
+    const itemRect = active.getBoundingClientRect();
+    setIndicator({
+      top: itemRect.top - navRect.top + nav.scrollTop,
+      height: itemRect.height,
+    });
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (indicator && !animateIndicator) {
+      const id = requestAnimationFrame(() => setAnimateIndicator(true));
+      return () => cancelAnimationFrame(id);
+    }
+  }, [indicator, animateIndicator]);
 
   function handleProfileClick() {
     if (signedIn && github?.login) {
@@ -58,7 +89,21 @@ function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
+      <nav
+        ref={navRef}
+        className="relative flex-1 overflow-y-auto px-2 py-3 space-y-0.5"
+      >
+        {indicator && (
+          <div
+            aria-hidden
+            className={cn(
+              "pointer-events-none absolute left-2 right-2 rounded-md bg-violet-500/15",
+              animateIndicator &&
+                "transition-[top,height] duration-300 ease-out"
+            )}
+            style={{ top: indicator.top, height: indicator.height }}
+          />
+        )}
         {NAV_ITEMS.map(({ to, icon: Icon, label, end }) => (
           <NavLink
             key={to}
@@ -66,9 +111,9 @@ function Sidebar() {
             end={end}
             className={({ isActive }) =>
               cn(
-                "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                "relative z-10 flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                 isActive
-                  ? "bg-violet-500/15 text-foreground"
+                  ? "text-foreground"
                   : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               )
             }

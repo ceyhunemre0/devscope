@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/PageHeader";
-import { ReportListItem } from "@/components/ReportListItem";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -197,39 +196,6 @@ function ProjectBreakdown({ data }: { data: StatsOut["by_project"] }) {
   );
 }
 
-function CommitList({ commits }: { commits: StatsOut["commits"] }) {
-  if (commits.length === 0) return null;
-  return (
-    <div className="rounded-lg border border-border divide-y divide-border max-h-[480px] overflow-y-auto">
-      {commits.map((c) => (
-        <div key={c.sha} className="px-3 py-2 hover:bg-accent/30 transition-colors">
-          <div className="flex flex-wrap items-baseline gap-2">
-            <code className="text-[10px] font-mono text-muted-foreground">
-              {c.sha.slice(0, 7)}
-            </code>
-            <span className="text-xs text-muted-foreground">
-              {new Date(c.occurred_at).toLocaleString(undefined, {
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </span>
-            <span className="text-xs font-medium text-violet-300">
-              {c.project_name}
-            </span>
-            <span className="ml-auto text-xs font-mono text-muted-foreground shrink-0">
-              <span className="text-emerald-400">+{c.insertions}</span>{" "}
-              <span className="text-rose-400">−{c.deletions}</span>
-            </span>
-          </div>
-          <p className="text-sm text-foreground mt-0.5 truncate">{c.subject}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export default function AnalyticsPage() {
   const [range, setRange] = useState<RangeKey>("7d");
   const [projectId, setProjectId] = useState<string>("");
@@ -263,24 +229,12 @@ export default function AnalyticsPage() {
       }),
   });
 
-  const { data: reports } = useQuery({
-    queryKey: ["reports"],
-    queryFn: () => api.listReports(50),
-  });
-
-  const scopedReports = useMemo(() => {
-    if (!reports) return [];
-    if (!projectId) return reports;
-    const pid = Number(projectId);
-    return reports.filter((r) => r.project_id === pid);
-  }, [reports, projectId]);
-
   return (
     <>
       <PageHeader
         crumb="Analytics"
         title="Activity & history"
-        lead="Commit volume, line churn, per-project breakdown, and AI-generated summaries."
+        lead="Commit volume, line churn, per-project breakdown, and full commit history."
       />
 
       {/* Controls */}
@@ -432,25 +386,39 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
       )}
-
-      {/* Generated summaries */}
-      <details className="rounded-xl ring-1 ring-foreground/10 bg-card overflow-hidden">
-        <summary className="px-4 py-3 cursor-pointer list-none select-none hover:bg-accent/40 transition-colors text-sm font-medium">
-          Generated summaries{" "}
-          <span className="text-xs text-muted-foreground">
-            · {scopedReports.length} standup{scopedReports.length === 1 ? "" : "s"}
-          </span>
-        </summary>
-        <div className="p-4 space-y-3">
-          {scopedReports.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No AI summaries yet. Generate one from the Dashboard.
-            </p>
-          ) : (
-            scopedReports.map((r) => <ReportListItem key={r.id} report={r} />)
-          )}
-        </div>
-      </details>
     </>
+  );
+}
+
+function CommitList({ commits }: { commits: StatsOut["commits"] }) {
+  if (commits.length === 0) return null;
+  return (
+    <div className="rounded-lg border border-border divide-y divide-border max-h-[480px] overflow-y-auto">
+      {commits.map((c) => (
+        <div key={c.sha} className="px-3 py-2 hover:bg-accent/30 transition-colors">
+          <div className="flex flex-wrap items-baseline gap-2">
+            <code className="text-[10px] font-mono text-muted-foreground">
+              {c.sha.slice(0, 7)}
+            </code>
+            <span className="text-xs text-muted-foreground">
+              {new Date(c.occurred_at).toLocaleString(undefined, {
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
+            <span className="text-xs font-medium text-violet-300">
+              {c.project_name}
+            </span>
+            <span className="ml-auto text-xs font-mono text-muted-foreground shrink-0">
+              <span className="text-emerald-400">+{c.insertions}</span>{" "}
+              <span className="text-rose-400">−{c.deletions}</span>
+            </span>
+          </div>
+          <p className="text-sm text-foreground mt-0.5 truncate">{c.subject}</p>
+        </div>
+      ))}
+    </div>
   );
 }
