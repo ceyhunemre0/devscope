@@ -5,11 +5,14 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
-    "shell:allow-execute",
     {
-      "identifier": "shell:allow-spawn",
+      "identifier": "shell:allow-execute",
       "allow": [
-        { "name": "devscope-backend", "sidecar": true }
+        {
+          "name": "devscope-backend",
+          "cmd": "$RESOURCE/binaries/devscope-backend-bundle/devscope-backend",
+          "args": true
+        }
       ]
     },
     {

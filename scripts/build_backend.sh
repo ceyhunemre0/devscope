@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
-# Build the devscope-backend sidecar binary for the host platform.
-# Output goes into src-tauri/binaries/devscope-backend-<rust-triple>
+# Build the devscope-backend Python bundle for the host platform.
+# Produces a directory (PyInstaller --onedir) at:
+#     src-tauri/binaries/devscope-backend-bundle/
+# The executable inside is "devscope-backend"; Tauri spawns it as a sidecar via
+# a resource-resolved path (see src-tauri/src/lib.rs). Onedir is chosen over
+# onefile so cold-start avoids per-launch /tmp extraction (~50s -> ~1s).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -21,6 +25,7 @@ fi
 
 mkdir -p src-tauri/binaries
 OUT_DIR="$(mktemp -d)"
+BUNDLE_DEST="src-tauri/binaries/devscope-backend-bundle"
 trap 'rm -rf "$OUT_DIR"' EXIT
 
 # Critical hidden imports that PyInstaller's static analysis misses:
@@ -78,7 +83,7 @@ for mod in "${HIDDEN_IMPORTS[@]}"; do
 done
 
 pyinstaller \
-  --onefile \
+  --onedir \
   --name devscope-backend \
   --distpath "$OUT_DIR/dist" \
   --workpath "$OUT_DIR/build" \
@@ -91,7 +96,12 @@ pyinstaller \
   "${PYI_HIDDEN_ARGS[@]}" \
   "$ROOT/src/devscope/server_main.py"
 
-cp "$OUT_DIR/dist/devscope-backend" "src-tauri/binaries/devscope-backend-$TRIPLE"
-chmod +x "src-tauri/binaries/devscope-backend-$TRIPLE"
+# Replace the previous bundle with the freshly built one.
+rm -rf "$BUNDLE_DEST"
+cp -R "$OUT_DIR/dist/devscope-backend" "$BUNDLE_DEST"
+chmod +x "$BUNDLE_DEST/devscope-backend"
 
-echo "Built sidecar: src-tauri/binaries/devscope-backend-$TRIPLE"
+# Clean up any stale onefile-era binary so Tauri doesn't pick it up.
+rm -f "src-tauri/binaries/devscope-backend-$TRIPLE"
+
+echo "Built sidecar bundle: $BUNDLE_DEST (triple: $TRIPLE)"

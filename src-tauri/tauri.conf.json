@@ -38,6 +38,6 @@
     "android": {
       "debugApplicationIdSuffix": ".debug"
     },
-    "externalBin": ["binaries/devscope-backend"]
+    "resources": ["binaries/devscope-backend-bundle/**/*"]
   }
 }

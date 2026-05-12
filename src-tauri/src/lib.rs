@@ -1,6 +1,7 @@
 use std::net::TcpListener;
 use std::sync::Mutex;
 
+use tauri::path::BaseDirectory;
 use tauri::{Manager, RunEvent};
 use tauri_plugin_shell::process::CommandChild;
 use tauri_plugin_shell::ShellExt;
@@ -31,14 +32,27 @@ pub fn run() {
         .manage(BackendProcess(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![backend_port])
         .setup(move |app| {
-            let sidecar = app
+            // PyInstaller --onedir bundle. Layout (relative to Tauri resources):
+            //   binaries/devscope-backend-bundle/devscope-backend  <- executable
+            //   binaries/devscope-backend-bundle/_internal/...     <- Python + libs
+            // BaseDirectory::Resource resolves to src-tauri/ in dev and to the
+            // app's Resources/ dir in a packaged build, so the same relative
+            // path works for both.
+            let binary_path = app
+                .path()
+                .resolve(
+                    "binaries/devscope-backend-bundle/devscope-backend",
+                    BaseDirectory::Resource,
+                )
+                .expect("could not resolve backend binary path");
+
+            let cmd = app
                 .shell()
-                .sidecar("devscope-backend")
-                .expect("sidecar binary missing")
+                .command(binary_path)
                 .env("DEVSCOPE_PORT", port.to_string())
                 .env("DEVSCOPE_HOST", "127.0.0.1");
 
-            let (_rx, child) = sidecar.spawn().expect("failed to spawn devscope-backend");
+            let (_rx, child) = cmd.spawn().expect("failed to spawn devscope-backend");
 
             let state: tauri::State<BackendProcess> = app.state();
             *state.0.lock().unwrap() = Some(child);

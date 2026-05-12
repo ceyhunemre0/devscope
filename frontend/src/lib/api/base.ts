@@ -4,6 +4,9 @@ let inflight: Promise<string> | null = null;
 async function probeHealth(base: string, timeoutMs = 30_000): Promise<void> {
   const start = Date.now();
   let lastErr: unknown = null;
+  // The PyInstaller --onedir bundle launches in ~1s after the OS file cache
+  // is warm. First-ever launch on a fresh install can take up to ~15s while
+  // macOS validates the unsigned bundle and the Python interpreter cold-starts.
   while (Date.now() - start < timeoutMs) {
     try {
       const res = await fetch(`${base}/health`);
@@ -12,7 +15,7 @@ async function probeHealth(base: string, timeoutMs = 30_000): Promise<void> {
     } catch (e) {
       lastErr = e;
     }
-    await new Promise((r) => setTimeout(r, 250));
+    await new Promise((r) => setTimeout(r, 500));
   }
   throw new Error(
     `backend not reachable after ${timeoutMs}ms: ${String(lastErr ?? "timeout")}`,
