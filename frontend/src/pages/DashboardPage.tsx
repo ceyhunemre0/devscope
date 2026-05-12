@@ -92,8 +92,12 @@ export default function DashboardPage() {
     <>
       <PageHeader
         crumb="Dashboard"
-        title="What's happening in your code"
-        lead="AI-summarised commit activity across your tracked projects."
+        title={
+          <>
+            What&apos;s <span className="shimmer-word">happening</span> in your dev life
+          </>
+        }
+        lead="AI-summarised activity across your projects, commits, and contributions."
       />
 
       {/* Stats row */}

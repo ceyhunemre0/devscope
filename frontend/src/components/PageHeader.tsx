@@ -1,7 +1,7 @@
 interface Props {
   crumb: string;
-  title: string;
-  lead?: string;
+  title: React.ReactNode;
+  lead?: React.ReactNode;
   actions?: React.ReactNode;
 }
 
