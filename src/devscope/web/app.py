@@ -11,7 +11,7 @@ Eventually wrapped by Tauri as a desktop application.
 from __future__ import annotations
 
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -19,7 +19,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from devscope import __version__
@@ -40,6 +40,13 @@ from devscope.storage.session import init_db, make_engine, session_factory
 _FRONTEND_DIST = Path(__file__).resolve().parent.parent.parent.parent / "frontend" / "dist"
 
 
+def _ensure_aware_utc(value: datetime | None) -> datetime | None:
+    """Stamp naive datetimes (legacy SQLite rows) as UTC so JSON ISO output carries an offset."""
+    if isinstance(value, datetime) and value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value
+
+
 # ---------- Pydantic response/request models ----------
 
 
@@ -52,6 +59,11 @@ class ProjectOut(BaseModel):
     tech_stack: list[str] | None = None
     last_activity_at: datetime | None = None
 
+    @field_validator("last_activity_at", mode="before")
+    @classmethod
+    def _aware_last_activity(cls, v: Any) -> Any:
+        return _ensure_aware_utc(v) if isinstance(v, datetime) else v
+
 
 class ReportOut(BaseModel):
     id: int
@@ -61,6 +73,11 @@ class ReportOut(BaseModel):
     period_start: datetime | None = None
     period_end: datetime | None = None
     generated_at: datetime
+
+    @field_validator("period_start", "period_end", "generated_at", mode="before")
+    @classmethod
+    def _aware_dates(cls, v: Any) -> Any:
+        return _ensure_aware_utc(v) if isinstance(v, datetime) else v
 
 
 class DashboardOut(BaseModel):
