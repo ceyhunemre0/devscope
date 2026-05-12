@@ -77,32 +77,92 @@ function StatCard({
   );
 }
 
+function fmtDay(s: string): string {
+  const d = new Date(`${s}T00:00:00`);
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 function DailyBars({ data }: { data: StatsOut["by_day"] }) {
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+
   if (data.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">No commits in this range.</p>
     );
   }
+
   const max = Math.max(...data.map((d) => d.commits), 1);
+  const totalCommits = data.reduce((acc, d) => acc + d.commits, 0);
+  const hovered = hoverIdx != null ? data[hoverIdx] : null;
+  const midIdx = Math.floor(data.length / 2);
+
   return (
-    <div className="flex items-end gap-1 h-32">
-      {data.map((d) => {
-        const height = Math.round((d.commits / max) * 100);
-        return (
-          <div
-            key={d.date}
-            className="flex-1 min-w-[6px] flex flex-col items-center gap-1"
-            title={`${d.date} · ${d.commits} commits · +${d.insertions} −${d.deletions}`}
-          >
-            <div className="flex-1 w-full flex items-end">
-              <div
-                className="w-full bg-violet-500/70 hover:bg-violet-400 transition-colors rounded-t-[2px]"
-                style={{ height: `${height}%`, minHeight: d.commits > 0 ? "2px" : "0" }}
-              />
-            </div>
-          </div>
-        );
-      })}
+    <div>
+      {/* Readout — fixed height so the chart doesn't jump on hover */}
+      <div className="h-5 mb-2 text-xs flex items-baseline justify-between gap-3">
+        {hovered ? (
+          <>
+            <span className="font-mono text-foreground">{fmtDay(hovered.date)}</span>
+            <span className="font-mono text-muted-foreground">
+              <span className="text-foreground">{hovered.commits}</span> commit
+              {hovered.commits === 1 ? "" : "s"} ·{" "}
+              <span className="text-emerald-400">+{hovered.insertions}</span>{" "}
+              <span className="text-rose-400">−{hovered.deletions}</span>
+            </span>
+          </>
+        ) : (
+          <span className="text-muted-foreground/70">
+            {totalCommits} commits across {data.length} day
+            {data.length === 1 ? "" : "s"} · peak {max}
+          </span>
+        )}
+      </div>
+
+      {/* Plot area: y-axis labels + bars */}
+      <div className="flex gap-2">
+        <div className="flex flex-col justify-between text-[10px] font-mono text-muted-foreground/70 h-32 py-0.5 w-4 text-right">
+          <span>{max}</span>
+          <span>0</span>
+        </div>
+        <div className="flex items-end gap-1 h-32 flex-1">
+          {data.map((d, i) => {
+            const height = Math.round((d.commits / max) * 100);
+            const active = hoverIdx === i;
+            return (
+              <button
+                key={d.date}
+                type="button"
+                onMouseEnter={() => setHoverIdx(i)}
+                onMouseLeave={() => setHoverIdx(null)}
+                onFocus={() => setHoverIdx(i)}
+                onBlur={() => setHoverIdx(null)}
+                aria-label={`${d.date}: ${d.commits} commits, +${d.insertions} −${d.deletions}`}
+                className="group flex-1 min-w-[6px] h-full flex flex-col justify-end items-center cursor-pointer focus:outline-none focus-visible:ring-1 focus-visible:ring-violet-400 rounded-t-[2px]"
+              >
+                <div
+                  className={cn(
+                    "w-full rounded-t-[2px] transition-colors",
+                    active
+                      ? "bg-violet-300"
+                      : "bg-violet-500/70 group-hover:bg-violet-400",
+                  )}
+                  style={{
+                    height: `${height}%`,
+                    minHeight: d.commits > 0 ? "2px" : "0",
+                  }}
+                />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* X-axis labels */}
+      <div className="flex justify-between text-[10px] font-mono text-muted-foreground/70 mt-1 ml-6">
+        <span>{fmtDay(data[0].date)}</span>
+        {data.length > 2 && <span>{fmtDay(data[midIdx].date)}</span>}
+        {data.length > 1 && <span>{fmtDay(data[data.length - 1].date)}</span>}
+      </div>
     </div>
   );
 }
@@ -170,9 +230,10 @@ function CommitList({ commits }: { commits: StatsOut["commits"] }) {
   );
 }
 
-export default function ReportsPage() {
+export default function AnalyticsPage() {
   const [range, setRange] = useState<RangeKey>("7d");
   const [projectId, setProjectId] = useState<string>("");
+  const [mineOnly, setMineOnly] = useState<boolean>(true);
 
   const since = useMemo(() => rangeSince(range), [range]);
   const sinceIso = since.toISOString();
@@ -182,17 +243,23 @@ export default function ReportsPage() {
     queryFn: api.listProjects,
   });
 
+  const { data: github } = useQuery({
+    queryKey: ["github-status"],
+    queryFn: api.githubStatus,
+  });
+
   const {
     data: stats,
     isLoading,
     error,
   } = useQuery({
-    queryKey: ["stats", sinceIso, projectId],
+    queryKey: ["stats", sinceIso, projectId, mineOnly],
     queryFn: () =>
       api.stats({
         since: sinceIso,
         project_id: projectId ? Number(projectId) : undefined,
         commits_limit: 200,
+        mine_only: mineOnly,
       }),
   });
 
@@ -211,7 +278,7 @@ export default function ReportsPage() {
   return (
     <>
       <PageHeader
-        crumb="Reports"
+        crumb="Analytics"
         title="Activity & history"
         lead="Commit volume, line churn, per-project breakdown, and AI-generated summaries."
       />
@@ -251,7 +318,49 @@ export default function ReportsPage() {
             ))}
           </SelectContent>
         </Select>
+
+        <div className="flex rounded-md border border-border overflow-hidden">
+          <button
+            onClick={() => setMineOnly(true)}
+            className={cn(
+              "px-3 py-1.5 text-sm transition-colors",
+              mineOnly
+                ? "bg-violet-500/15 text-foreground"
+                : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
+            )}
+            title={
+              github?.login
+                ? `Match commits authored by @${github.login}`
+                : "Match commits authored with your local git identity"
+            }
+          >
+            Mine only
+          </button>
+          <button
+            onClick={() => setMineOnly(false)}
+            className={cn(
+              "px-3 py-1.5 text-sm transition-colors",
+              !mineOnly
+                ? "bg-violet-500/15 text-foreground"
+                : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
+            )}
+            title="Count every author's commits in these repos"
+          >
+            All authors
+          </button>
+        </div>
       </div>
+
+      {/* Identity hint */}
+      {stats?.mine_only && (
+        <p className="text-[11px] text-muted-foreground/70 mb-4 font-mono">
+          filtered to{" "}
+          {stats.identity_emails.length > 0
+            ? stats.identity_emails.join(", ")
+            : "your local git identity"}
+          {github?.login && ` · @${github.login}`}
+        </p>
+      )}
 
       {error && (
         <p className="text-sm text-destructive mb-4">

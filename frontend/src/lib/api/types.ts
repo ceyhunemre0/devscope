@@ -182,6 +182,8 @@ export interface StatsOut {
   by_day: StatsByDayOut[];
   by_project: StatsByProjectOut[];
   commits: StatsCommitOut[];
+  mine_only: boolean;
+  identity_emails: string[];
 }
 
 export interface StatsQuery {
@@ -189,4 +191,5 @@ export interface StatsQuery {
   until?: string;
   project_id?: number;
   commits_limit?: number;
+  mine_only?: boolean;
 }

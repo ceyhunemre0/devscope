@@ -217,7 +217,7 @@ export default function DashboardPage() {
                   </span>
                 </span>
                 <Link
-                  to="/reports"
+                  to="/analytics"
                   className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
                   view all →

@@ -3,7 +3,7 @@ import Layout from "@/components/Layout";
 import { BackendGate } from "@/components/BackendGate";
 import DashboardPage from "@/pages/DashboardPage";
 import ProjectsPage from "@/pages/ProjectsPage";
-import ReportsPage from "@/pages/ReportsPage";
+import AnalyticsPage from "@/pages/AnalyticsPage";
 import SettingsPage from "@/pages/SettingsPage";
 
 export default function App() {
@@ -13,7 +13,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
-          <Route path="/reports" element={<ReportsPage />} />
+          <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<div className="text-muted-foreground">404 — not found</div>} />
         </Routes>

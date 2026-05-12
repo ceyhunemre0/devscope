@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   FolderGit2,
-  FileText,
+  BarChart3,
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -13,7 +13,7 @@ import { openExternal } from "@/lib/external";
 const NAV_ITEMS = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard", end: true },
   { to: "/projects", icon: FolderGit2, label: "Projects", end: false },
-  { to: "/reports", icon: FileText, label: "Reports", end: false },
+  { to: "/analytics", icon: BarChart3, label: "Analytics", end: false },
   { to: "/settings", icon: Settings, label: "Settings", end: false },
 ];
 

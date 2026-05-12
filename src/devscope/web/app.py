@@ -11,10 +11,12 @@ Eventually wrapped by Tauri as a desktop application.
 from __future__ import annotations
 
 import os
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import pygit2
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -276,6 +278,64 @@ class StatsOut(BaseModel):
     by_day: list[StatsByDayOut]
     by_project: list[StatsByProjectOut]
     commits: list[StatsCommitOut]
+    mine_only: bool = False
+    identity_emails: list[str] = Field(default_factory=list)
+
+
+# ---------- Identity resolution (for "mine only" stats filtering) ----------
+
+# Module-level cache keyed by PAT; identities don't change minute-to-minute and
+# resolving them takes 2 GitHub API roundtrips, which is wasteful per request.
+_IDENTITY_TTL_SEC = 300.0
+_identity_cache: dict[str, tuple[float, set[str], set[str]]] = {}
+
+
+async def _resolve_github_identities() -> tuple[set[str], set[str]]:
+    """Return (emails_lower, names_lower) derived from the saved GitHub PAT.
+
+    Empty sets if no PAT, the PAT is invalid, or all GitHub calls fail.
+    """
+    token = get_secret("GITHUB_PAT")
+    if not token:
+        return set(), set()
+    now = time.time()
+    cached = _identity_cache.get(token)
+    if cached and now - cached[0] < _IDENTITY_TTL_SEC:
+        return cached[1], cached[2]
+
+    emails: set[str] = set()
+    names: set[str] = set()
+    try:
+        user = await gh_client.whoami(token)
+    except Exception:
+        return set(), set()
+    if user.login:
+        login = user.login.lower()
+        # GitHub's two noreply patterns: legacy `<login>@...` and modern `<id>+<login>@...`.
+        emails.add(f"{login}@users.noreply.github.com")
+    if user.name:
+        names.add(user.name.lower())
+    try:
+        for e in await gh_client.list_verified_emails(token):
+            emails.add(e.lower())
+    except Exception:
+        pass
+    _identity_cache[token] = (now, emails, names)
+    return emails, names
+
+
+def _repo_user_email(repo_path: Path) -> str | None:
+    """Read the per-repo `git config user.email`. None if not set or repo invalid."""
+    if not (repo_path / ".git").exists():
+        return None
+    try:
+        repo = pygit2.Repository(str(repo_path))
+    except pygit2.GitError:
+        return None
+    try:
+        return str(repo.config["user.email"])
+    except (KeyError, pygit2.GitError):
+        return None
 
 
 # ---------- App factory ----------
@@ -413,11 +473,12 @@ def create_app() -> FastAPI:
         return out
 
     @app.get("/api/stats", response_model=StatsOut)
-    def stats(
+    async def stats(
         since: datetime,
         until: datetime | None = None,
         project_id: int | None = None,
         commits_limit: int = 200,
+        mine_only: bool = True,
     ) -> StatsOut:
         if since.tzinfo is None:
             since = since.replace(tzinfo=UTC)
@@ -439,11 +500,41 @@ def create_app() -> FastAPI:
             else:
                 targets = repo.list_active()
 
+        # Build the set of identities that count as "the user", if filtering is on.
+        # Sources: GitHub login → noreply pattern, verified GitHub emails, GitHub display
+        # name, and per-repo `git config user.email`. Comparison is case-insensitive.
+        global_emails: set[str] = set()
+        global_names: set[str] = set()
+        applied_mine_only = False
+        if mine_only:
+            global_emails, global_names = await _resolve_github_identities()
+            # Without any GitHub identity we'd silently filter to zero — falling back
+            # to per-repo git config still lets us match the local committer.
+            applied_mine_only = True
+
         # Aggregate across all targeted projects.
         all_commits: list[StatsCommitOut] = []
         by_project_map: dict[int, StatsByProjectOut] = {}
         for project in targets:
             rows = collect_commit_stats(Path(project.path), since=since, until=until)
+            if not rows:
+                continue
+            if applied_mine_only:
+                project_emails = set(global_emails)
+                repo_email = _repo_user_email(Path(project.path))
+                if repo_email:
+                    project_emails.add(repo_email.lower())
+                if not project_emails and not global_names:
+                    # No identities resolved at all — skip filtering for this project
+                    # rather than silently dropping every commit.
+                    pass
+                else:
+                    rows = [
+                        r
+                        for r in rows
+                        if (r.author_email or "").lower() in project_emails
+                        or (r.author_name or "").lower() in global_names
+                    ]
             if not rows:
                 continue
             p_commits = 0
@@ -516,6 +607,8 @@ def create_app() -> FastAPI:
             by_day=by_day,
             by_project=by_project,
             commits=all_commits[:commits_limit],
+            mine_only=applied_mine_only,
+            identity_emails=sorted(global_emails),
         )
 
     @app.get("/api/reports", response_model=list[ReportOut])

@@ -105,6 +105,30 @@ async def whoami(token: str) -> GitHubUser:
     )
 
 
+async def list_verified_emails(token: str) -> list[str]:
+    """Return the user's verified emails. Returns [] if PAT lacks user:email scope."""
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+            resp = await client.get(
+                f"{_API_BASE}/user/emails", headers=_headers(token)
+            )
+    except httpx.HTTPError:
+        return []
+    # Missing scope → 403/404; treat as "we just can't see them" rather than erroring out.
+    if resp.status_code in (401, 403, 404):
+        return []
+    if not resp.is_success:
+        return []
+    out: list[str] = []
+    try:
+        for entry in resp.json():
+            if entry.get("verified") and entry.get("email"):
+                out.append(str(entry["email"]))
+    except Exception:
+        return []
+    return out
+
+
 async def list_repos(token: str, *, max_pages: int = 5) -> list[GitHubRepo]:
     """Return repos the authenticated user can see, sorted by last push."""
     out: list[GitHubRepo] = []

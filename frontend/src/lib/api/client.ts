@@ -118,6 +118,7 @@ export const api = {
     if (q.until) params.set('until', q.until);
     if (q.project_id != null) params.set('project_id', String(q.project_id));
     if (q.commits_limit != null) params.set('commits_limit', String(q.commits_limit));
+    if (q.mine_only != null) params.set('mine_only', String(q.mine_only));
     return request<StatsOut>(`/stats?${params.toString()}`);
   },
 };
