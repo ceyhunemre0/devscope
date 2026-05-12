@@ -9,6 +9,7 @@ dist/
 build/
 .venv/
 venv/
+uv.lock
 
 # Tests / tooling
 .pytest_cache/
