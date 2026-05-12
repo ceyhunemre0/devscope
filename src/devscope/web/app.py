@@ -30,6 +30,7 @@ from devscope.collectors.git_diff import (
     recent_commit_examples,
     summarize_working_tree,
 )
+from devscope.collectors.git_stats import collect_commit_stats
 from devscope.config import load_settings
 from devscope.generators.commit_message import CommitMessageGenerator
 from devscope.github import client as gh_client
@@ -229,6 +230,50 @@ class GitHubCloneIn(BaseModel):
     name: str | None = None
 
 
+class StatsCommitOut(BaseModel):
+    sha: str
+    project_id: int
+    project_name: str
+    occurred_at: datetime
+    subject: str
+    files_changed: int
+    insertions: int
+    deletions: int
+
+    @field_validator("occurred_at", mode="before")
+    @classmethod
+    def _aware_occurred(cls, v: Any) -> Any:
+        return _ensure_aware_utc(v) if isinstance(v, datetime) else v
+
+
+class StatsByDayOut(BaseModel):
+    date: str  # YYYY-MM-DD
+    commits: int
+    insertions: int
+    deletions: int
+
+
+class StatsByProjectOut(BaseModel):
+    project_id: int
+    project_name: str
+    commits: int
+    insertions: int
+    deletions: int
+
+
+class StatsOut(BaseModel):
+    since: datetime
+    until: datetime
+    total_commits: int
+    total_insertions: int
+    total_deletions: int
+    files_touched: int
+    active_days: int
+    by_day: list[StatsByDayOut]
+    by_project: list[StatsByProjectOut]
+    commits: list[StatsCommitOut]
+
+
 # ---------- App factory ----------
 
 
@@ -332,6 +377,112 @@ def create_app() -> FastAPI:
                 out.append(_project_to_out(project))
             s.commit()
         return out
+
+    @app.get("/api/stats", response_model=StatsOut)
+    def stats(
+        since: datetime,
+        until: datetime | None = None,
+        project_id: int | None = None,
+        commits_limit: int = 200,
+    ) -> StatsOut:
+        if since.tzinfo is None:
+            since = since.replace(tzinfo=UTC)
+        if until is None:
+            until = datetime.now(UTC)
+        elif until.tzinfo is None:
+            until = until.replace(tzinfo=UTC)
+        if since > until:
+            raise HTTPException(400, "since must be <= until")
+        commits_limit = max(1, min(commits_limit, 1000))
+
+        with session() as s:
+            repo = ProjectRepo(s)
+            if project_id is not None:
+                project = s.get(Project, project_id)
+                if project is None or project.state != "active":
+                    raise HTTPException(404, f"project {project_id} not found")
+                targets = [project]
+            else:
+                targets = repo.list_active()
+
+        # Aggregate across all targeted projects.
+        all_commits: list[StatsCommitOut] = []
+        by_project_map: dict[int, StatsByProjectOut] = {}
+        for project in targets:
+            rows = collect_commit_stats(Path(project.path), since=since, until=until)
+            if not rows:
+                continue
+            p_commits = 0
+            p_ins = 0
+            p_del = 0
+            for r in rows:
+                all_commits.append(
+                    StatsCommitOut(
+                        sha=r.sha,
+                        project_id=project.id,
+                        project_name=project.name,
+                        occurred_at=r.occurred_at,
+                        subject=r.subject,
+                        files_changed=r.files_changed,
+                        insertions=r.insertions,
+                        deletions=r.deletions,
+                    )
+                )
+                p_commits += 1
+                p_ins += r.insertions
+                p_del += r.deletions
+            by_project_map[project.id] = StatsByProjectOut(
+                project_id=project.id,
+                project_name=project.name,
+                commits=p_commits,
+                insertions=p_ins,
+                deletions=p_del,
+            )
+
+        # Sort commits newest-first, cap, and aggregate by-day.
+        all_commits.sort(key=lambda c: c.occurred_at, reverse=True)
+        by_day_map: dict[str, StatsByDayOut] = {}
+        files_touched = 0
+        total_ins = 0
+        total_del = 0
+        for c in all_commits:
+            day = c.occurred_at.strftime("%Y-%m-%d")
+            existing = by_day_map.get(day)
+            if existing is None:
+                by_day_map[day] = StatsByDayOut(
+                    date=day,
+                    commits=1,
+                    insertions=c.insertions,
+                    deletions=c.deletions,
+                )
+            else:
+                by_day_map[day] = StatsByDayOut(
+                    date=day,
+                    commits=existing.commits + 1,
+                    insertions=existing.insertions + c.insertions,
+                    deletions=existing.deletions + c.deletions,
+                )
+            files_touched += c.files_changed
+            total_ins += c.insertions
+            total_del += c.deletions
+
+        by_day = sorted(by_day_map.values(), key=lambda d: d.date)
+        by_project = sorted(
+            by_project_map.values(), key=lambda p: p.commits, reverse=True
+        )
+
+        return StatsOut(
+            since=since,
+            until=until,
+            total_commits=len(all_commits),
+            total_insertions=total_ins,
+            total_deletions=total_del,
+            files_touched=files_touched,
+            active_days=len(by_day),
+            by_day=by_day,
+            by_project=by_project,
+            commits=all_commits[:commits_limit],
+        )
 
     @app.get("/api/reports", response_model=list[ReportOut])
     def list_reports(limit: int = 50, project_id: int | None = None) -> list[ReportOut]:

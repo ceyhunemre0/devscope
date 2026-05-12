@@ -18,6 +18,8 @@ import type {
   GitHubRepoOut,
   GitHubContributionsOut,
   GitHubCloneIn,
+  StatsOut,
+  StatsQuery,
 } from './types';
 
 export class ApiError extends Error {
@@ -100,4 +102,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  stats: (q: StatsQuery) => {
+    const params = new URLSearchParams({ since: q.since });
+    if (q.until) params.set('until', q.until);
+    if (q.project_id != null) params.set('project_id', String(q.project_id));
+    if (q.commits_limit != null) params.set('commits_limit', String(q.commits_limit));
+    return request<StatsOut>(`/stats?${params.toString()}`);
+  },
 };

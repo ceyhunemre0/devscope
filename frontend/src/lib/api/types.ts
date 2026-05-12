@@ -140,3 +140,49 @@ export interface GitHubCloneIn {
   parent_dir: string;
   name?: string;
 }
+
+export interface StatsCommitOut {
+  sha: string;
+  project_id: number;
+  project_name: string;
+  occurred_at: string;
+  subject: string;
+  files_changed: number;
+  insertions: number;
+  deletions: number;
+}
+
+export interface StatsByDayOut {
+  date: string;
+  commits: number;
+  insertions: number;
+  deletions: number;
+}
+
+export interface StatsByProjectOut {
+  project_id: number;
+  project_name: string;
+  commits: number;
+  insertions: number;
+  deletions: number;
+}
+
+export interface StatsOut {
+  since: string;
+  until: string;
+  total_commits: number;
+  total_insertions: number;
+  total_deletions: number;
+  files_touched: number;
+  active_days: number;
+  by_day: StatsByDayOut[];
+  by_project: StatsByProjectOut[];
+  commits: StatsCommitOut[];
+}
+
+export interface StatsQuery {
+  since: string;
+  until?: string;
+  project_id?: number;
+  commits_limit?: number;
+}

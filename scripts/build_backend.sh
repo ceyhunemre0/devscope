@@ -43,6 +43,7 @@ HIDDEN_IMPORTS=(
   "devscope.collectors.base"
   "devscope.collectors.git_local"
   "devscope.collectors.git_diff"
+  "devscope.collectors.git_stats"
   "devscope.generators"
   "devscope.generators.base"
   "devscope.generators.standup"
