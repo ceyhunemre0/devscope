@@ -14,6 +14,37 @@ from pathlib import Path
 # a marker so the model is told the input is incomplete.
 _MAX_DIFF_CHARS = 12_000
 
+# Pathspecs that strip noise from the diff before the LLM sees it. Lockfiles,
+# build output, vendor dirs, and minified assets eat tokens without informing a
+# commit message.
+_DIFF_EXCLUDES: tuple[str, ...] = (
+    ":(exclude)*.lock",
+    ":(exclude)package-lock.json",
+    ":(exclude)pnpm-lock.yaml",
+    ":(exclude)yarn.lock",
+    ":(exclude)uv.lock",
+    ":(exclude)Cargo.lock",
+    ":(exclude)poetry.lock",
+    ":(exclude)**/dist/**",
+    ":(exclude)**/build/**",
+    ":(exclude)**/node_modules/**",
+    ":(exclude)**/__pycache__/**",
+    ":(exclude)**/target/**",
+    ":(exclude)**/binaries/**",
+    ":(exclude)*.min.js",
+    ":(exclude)*.min.css",
+    ":(exclude)*.map",
+)
+
+
+@dataclass(frozen=True)
+class CommitExample:
+    """A recent commit, used as a few-shot example for tone/style."""
+
+    sha: str
+    subject: str
+    body: str
+
 
 @dataclass(frozen=True)
 class WorkingTreeChanges:
@@ -61,8 +92,8 @@ def collect_working_tree_changes(repo_path: Path) -> WorkingTreeChanges:
         return WorkingTreeChanges(status="", diff="", truncated=False)
 
     status = _run(["git", "status", "--short"], repo_path)
-    staged = _run(["git", "diff", "--staged"], repo_path)
-    unstaged = _run(["git", "diff"], repo_path)
+    staged = _run(["git", "diff", "--staged", "--", *_DIFF_EXCLUDES], repo_path)
+    unstaged = _run(["git", "diff", "--", *_DIFF_EXCLUDES], repo_path)
 
     combined: list[str] = []
     if staged.strip():
@@ -120,3 +151,39 @@ def summarize_working_tree(repo_path: Path) -> WorkingTreeSummary:
         deletions=deletions,
         untracked_count=untracked_count,
     )
+
+
+# ASCII control chars used to delimit fields/records in `git log --format`
+# output. Picked because they cannot appear inside a commit subject/body and
+# survive arbitrary whitespace.
+_FIELD_SEP = "\x1f"
+_RECORD_SEP = "\x1e"
+
+
+def recent_commit_examples(repo_path: Path, n: int = 8) -> list[CommitExample]:
+    """Return the last `n` commits as few-shot examples for the LLM.
+
+    The model uses these to match the repository's tone (terse subjects, WHY
+    over WHAT in bodies). Returns an empty list if git is missing or the repo
+    has no history.
+    """
+    if not (repo_path / ".git").exists():
+        return []
+
+    fmt = f"%H{_FIELD_SEP}%s{_FIELD_SEP}%b{_RECORD_SEP}"
+    raw = _run(["git", "log", f"-n{n}", f"--format={fmt}"], repo_path)
+    examples: list[CommitExample] = []
+    for record in raw.split(_RECORD_SEP):
+        record = record.strip()
+        if not record:
+            continue
+        parts = record.split(_FIELD_SEP, 2)
+        if len(parts) < 2:
+            continue
+        sha = parts[0].strip()
+        subject = parts[1].strip()
+        body = parts[2].strip() if len(parts) > 2 else ""
+        if not subject:
+            continue
+        examples.append(CommitExample(sha=sha, subject=subject, body=body))
+    return examples

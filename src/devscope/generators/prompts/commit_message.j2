@@ -1,12 +1,31 @@
-You are an expert software engineer writing a commit message for the changes below.
+You are writing a commit message for the changes shown below.
 
-Follow these rules:
-- Use Conventional Commits format: `<type>(<scope>): <subject>`.
+RULES (non-negotiable):
+- Conventional Commits format: `<type>(<scope>): <subject>`.
 - Allowed types: feat, fix, chore, docs, refactor, test, perf, style, build, ci.
-- Subject line: lowercase, no trailing period, imperative mood, max 72 chars.
-- After the subject, leave a blank line and add a short body (2-4 sentences) only if the change needs explanation. Body lines wrap at 80 chars.
-- Focus on WHY the change is being made, not a line-by-line WHAT.
-- Output ONLY the commit message. No preamble, no code fences, no explanations.
+- Subject: lowercase, imperative ("add X", "fix Y", not "added"/"fixes"), no trailing period, ≤72 chars.
+- After the subject, blank line, then an optional body (1-3 short sentences). Body lines wrap at ~80 chars.
+- Body explains WHY (the problem this solves, what bug it fixes, what behavior it changes). Do NOT restate WHAT the code does — readers can see the diff.
+- Output ONLY the commit message. No preamble, no markdown code fences, no explanations, no "Here is your commit message:".
+
+FORBIDDEN phrases (your output must not contain any of these):
+"enhances", "enhancement", "introduces", "comprehensive", "robust", "seamless", "various", "overall", "user experience", "awareness", "streamlines", "improves the experience", "enhancing", "introducing".
+Use direct verbs instead: "add", "fix", "remove", "rename", "switch", "move", "wire up", "guard against".
+
+{% if examples %}
+EXAMPLES — these are real recent commits in this repository. Match their tone (terse, factual, WHY-focused) and length. Do not copy their subjects verbatim — they are style references only.
+
+{% for ex in examples %}
+---
+{{ ex.subject }}
+{% if ex.body %}
+{{ ex.body }}
+{% endif %}
+{% endfor %}
+---
+
+{% endif %}
+NOW write the commit message for the working tree below.
 
 Repository status (`git status --short`):
 {% if status %}
@@ -23,9 +42,14 @@ Diff:
 {{ diff }}
 ```
 {% else %}
-_(no tracked diff; likely only untracked files)_
+_(no tracked diff; likely only untracked files — base the message on the status output)_
 {% endif %}
 {% if truncated %}
 
-NOTE: The diff above was truncated. Base your message on the visible portion plus the status output.
+NOTE: The diff was truncated. Base your message on the visible portion plus the status output. If multiple distinct changes are visible, pick the most significant one and note the others briefly in the body.
+{% endif %}
+
+{% if retry_reason %}
+YOUR PREVIOUS ATTEMPT WAS REJECTED. Reason: {{ retry_reason }}
+Try again. Output ONLY the corrected commit message.
 {% endif %}

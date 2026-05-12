@@ -24,7 +24,11 @@ from sqlalchemy.orm import Session
 
 from devscope import __version__
 from devscope.cli.main import _build_chain, _today_impl
-from devscope.collectors.git_diff import collect_working_tree_changes, summarize_working_tree
+from devscope.collectors.git_diff import (
+    collect_working_tree_changes,
+    recent_commit_examples,
+    summarize_working_tree,
+)
 from devscope.config import load_settings
 from devscope.generators.commit_message import CommitMessageGenerator
 from devscope.llm.budget import BudgetGuard
@@ -317,8 +321,9 @@ def create_app() -> FastAPI:
                 chain=chain, guard=guard, repo=llm_repo, model_for=model_for
             )
             generator = CommitMessageGenerator(router=router)
+            examples = recent_commit_examples(repo_path, n=8)
             try:
-                output = await generator.run(changes)
+                output = await generator.run(changes, examples=examples)
             except Exception as exc:
                 raise HTTPException(502, f"LLM error: {exc}") from exc
             s.commit()
