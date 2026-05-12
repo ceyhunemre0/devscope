@@ -35,6 +35,10 @@ htmlcov/
 frontend/node_modules/
 frontend/dist/
 
+# Tauri
+src-tauri/target/
+src-tauri/gen/
+
 # AI artifacts — never committed
 docs/superpowers/
 .claude/
