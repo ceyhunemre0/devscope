@@ -81,3 +81,11 @@ export interface SuggestCommitOut {
   message: string;
   truncated: boolean;
 }
+
+export interface WorkingTreeStatusOut {
+  has_changes: boolean;
+  files_changed: number;
+  insertions: number;
+  deletions: number;
+  untracked_count: number;
+}

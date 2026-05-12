@@ -27,6 +27,72 @@ function formatDate(iso: string | null): string {
   }
 }
 
+function WorkingTreeBadge({ projectId }: { projectId: number }) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["working-tree-status", projectId],
+    queryFn: () => api.workingTreeStatus(projectId),
+    staleTime: 5_000,
+    refetchOnWindowFocus: true,
+  });
+
+  if (isLoading || error || !data) return null;
+
+  if (!data.has_changes) return null;
+
+  return (
+    <Badge
+      className="bg-amber-500/15 text-amber-300 border-amber-500/20 text-[10px] uppercase tracking-wide"
+      title="Uncommitted changes — expand for details"
+    >
+      Uncommitted
+    </Badge>
+  );
+}
+
+function WorkingTreeDetails({ projectId }: { projectId: number }) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["working-tree-status", projectId],
+    queryFn: () => api.workingTreeStatus(projectId),
+    staleTime: 5_000,
+    refetchOnWindowFocus: true,
+  });
+
+  if (isLoading) {
+    return (
+      <p className="text-xs text-muted-foreground">Checking working tree…</p>
+    );
+  }
+  if (error || !data) return null;
+
+  if (!data.has_changes) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        Working tree is clean — nothing to commit.
+      </p>
+    );
+  }
+
+  const trackedFiles = data.files_changed;
+  const totalFiles = trackedFiles + data.untracked_count;
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+      <span className="font-mono">
+        {totalFiles} {totalFiles === 1 ? "file" : "files"}
+      </span>
+      {trackedFiles > 0 && (
+        <>
+          <span className="font-mono text-emerald-400">+{data.insertions}</span>
+          <span className="font-mono text-rose-400">−{data.deletions}</span>
+        </>
+      )}
+      {data.untracked_count > 0 && (
+        <span className="font-mono">{data.untracked_count} untracked</span>
+      )}
+    </div>
+  );
+}
+
 function ProjectReports({ projectId }: { projectId: number }) {
   const { data: reports, isLoading, error } = useQuery({
     queryKey: ["reports", "project", projectId],
@@ -135,10 +201,16 @@ export function ProjectsTable() {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <span className="font-medium">{project.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{project.name}</span>
+                          <WorkingTreeBadge projectId={project.id} />
+                        </div>
                       </TableCell>
-                      <TableCell>
-                        <span className="font-mono text-xs text-muted-foreground">
+                      <TableCell className="max-w-[280px]">
+                        <span
+                          className="block truncate font-mono text-xs text-muted-foreground"
+                          title={project.path}
+                        >
                           {project.path}
                         </span>
                       </TableCell>
@@ -158,6 +230,12 @@ export function ProjectsTable() {
                     {isOpen && (
                       <TableRow className="bg-muted/20 hover:bg-muted/20">
                         <TableCell colSpan={5} className="p-4 space-y-4">
+                          <div className="rounded-lg border border-border bg-card p-3">
+                            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              Working tree
+                            </h4>
+                            <WorkingTreeDetails projectId={project.id} />
+                          </div>
                           <ProjectCommitSuggester projectId={project.id} />
                           <div>
                             <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">

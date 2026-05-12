@@ -26,6 +26,17 @@ class WorkingTreeChanges:
         return not self.status.strip() and not self.diff.strip()
 
 
+@dataclass(frozen=True)
+class WorkingTreeSummary:
+    """Cheap snapshot of dirtiness — counts only, no diff text."""
+
+    has_changes: bool
+    files_changed: int
+    insertions: int
+    deletions: int
+    untracked_count: int
+
+
 def _run(args: list[str], cwd: Path) -> str:
     result = subprocess.run(
         args,
@@ -66,3 +77,46 @@ def collect_working_tree_changes(repo_path: Path) -> WorkingTreeChanges:
         truncated = True
 
     return WorkingTreeChanges(status=status.rstrip(), diff=diff, truncated=truncated)
+
+
+def summarize_working_tree(repo_path: Path) -> WorkingTreeSummary:
+    """Count tracked changes + untracked files without dumping diff text."""
+    empty = WorkingTreeSummary(
+        has_changes=False,
+        files_changed=0,
+        insertions=0,
+        deletions=0,
+        untracked_count=0,
+    )
+    if not (repo_path / ".git").exists():
+        return empty
+
+    numstat = _run(["git", "diff", "--numstat", "HEAD"], repo_path)
+    files_changed = 0
+    insertions = 0
+    deletions = 0
+    for line in numstat.splitlines():
+        parts = line.split("\t")
+        if len(parts) < 3:
+            continue
+        added_raw, deleted_raw, _path = parts[0], parts[1], parts[2]
+        files_changed += 1
+        # Binary files are reported as "-\t-\t<path>"; treat as 0/0 for the summary.
+        if added_raw.isdigit():
+            insertions += int(added_raw)
+        if deleted_raw.isdigit():
+            deletions += int(deleted_raw)
+
+    untracked = _run(
+        ["git", "ls-files", "--others", "--exclude-standard"], repo_path
+    )
+    untracked_count = sum(1 for line in untracked.splitlines() if line.strip())
+
+    has_changes = files_changed > 0 or untracked_count > 0
+    return WorkingTreeSummary(
+        has_changes=has_changes,
+        files_changed=files_changed,
+        insertions=insertions,
+        deletions=deletions,
+        untracked_count=untracked_count,
+    )

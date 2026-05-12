@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 
 from devscope import __version__
 from devscope.cli.main import _build_chain, _today_impl
-from devscope.collectors.git_diff import collect_working_tree_changes
+from devscope.collectors.git_diff import collect_working_tree_changes, summarize_working_tree
 from devscope.config import load_settings
 from devscope.generators.commit_message import CommitMessageGenerator
 from devscope.llm.budget import BudgetGuard
@@ -143,6 +143,14 @@ class SuggestCommitOut(BaseModel):
     truncated: bool
 
 
+class WorkingTreeStatusOut(BaseModel):
+    has_changes: bool
+    files_changed: int
+    insertions: int
+    deletions: int
+    untracked_count: int
+
+
 # ---------- App factory ----------
 
 
@@ -257,6 +265,24 @@ def create_app() -> FastAPI:
             else:
                 rows = repo.list_by_type("standup")[:limit]
             return [ReportOut.model_validate(r, from_attributes=True) for r in rows]
+
+    @app.get(
+        "/api/projects/{project_id}/working-tree-status",
+        response_model=WorkingTreeStatusOut,
+    )
+    def working_tree_status(project_id: int) -> WorkingTreeStatusOut:
+        with session() as s:
+            project = s.get(Project, project_id)
+            if project is None:
+                raise HTTPException(404, f"project {project_id} not found")
+            summary = summarize_working_tree(Path(project.path))
+        return WorkingTreeStatusOut(
+            has_changes=summary.has_changes,
+            files_changed=summary.files_changed,
+            insertions=summary.insertions,
+            deletions=summary.deletions,
+            untracked_count=summary.untracked_count,
+        )
 
     @app.post(
         "/api/projects/{project_id}/suggest-commit",

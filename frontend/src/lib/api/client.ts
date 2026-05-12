@@ -12,6 +12,7 @@ import type {
   SettingsOut,
   SuggestCommitIn,
   SuggestCommitOut,
+  WorkingTreeStatusOut,
 } from './types';
 
 export class ApiError extends Error {
@@ -78,4 +79,6 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ provider: 'auto', ...body }),
     }),
+  workingTreeStatus: (projectId: number) =>
+    request<WorkingTreeStatusOut>(`/projects/${projectId}/working-tree-status`),
 };
