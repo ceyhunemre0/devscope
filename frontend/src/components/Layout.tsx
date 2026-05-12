@@ -11,6 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api/client";
 import { openExternal } from "@/lib/external";
+import logoWordmark from "@/assets/logo-wordmark.png";
 
 const NAV_ITEMS = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard", end: true },
@@ -78,14 +79,13 @@ function Sidebar() {
   return (
     <aside className="flex h-full w-60 shrink-0 flex-col border-r border-border bg-sidebar">
       {/* Brand */}
-      <div className="flex h-14 items-center gap-2.5 px-4 border-b border-border">
-        <span className="relative flex h-2.5 w-2.5">
-          <span className="absolute inline-flex h-full w-full rounded-full bg-violet-500 opacity-75 blur-[3px]" />
-          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-violet-500" />
-        </span>
-        <span className="font-bold tracking-tight text-foreground text-base select-none">
-          devscope
-        </span>
+      <div className="flex h-14 items-center px-2 border-b border-border">
+        <img
+          src={logoWordmark}
+          alt="devscope"
+          draggable={false}
+          className="h-12 w-auto select-none [mix-blend-mode:screen]"
+        />
       </div>
 
       {/* Nav */}
@@ -184,14 +184,13 @@ export default function Layout({ children }: LayoutProps) {
       </div>
 
       {/* Mobile top bar */}
-      <div className="fixed top-0 left-0 right-0 z-50 flex h-12 items-center gap-3 border-b border-border bg-sidebar px-4 md:hidden">
-        <span className="relative flex h-2 w-2">
-          <span className="absolute inline-flex h-full w-full rounded-full bg-violet-500 opacity-75 blur-[3px]" />
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-violet-500" />
-        </span>
-        <span className="font-bold tracking-tight text-foreground text-sm select-none">
-          devscope
-        </span>
+      <div className="fixed top-0 left-0 right-0 z-50 flex h-12 items-center gap-3 border-b border-border bg-sidebar px-3 md:hidden">
+        <img
+          src={logoWordmark}
+          alt="devscope"
+          draggable={false}
+          className="h-10 w-auto select-none [mix-blend-mode:screen]"
+        />
         <nav className="ml-auto flex items-center gap-1">
           {NAV_ITEMS.map(({ to, icon: Icon, label, end }) => (
             <NavLink

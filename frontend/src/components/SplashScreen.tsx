@@ -1,3 +1,5 @@
+import logoWordmark from "@/assets/logo-wordmark.png";
+
 interface SplashScreenProps {
   status?: string;
   error?: string;
@@ -5,15 +7,13 @@ interface SplashScreenProps {
 
 export function SplashScreen({ status, error }: SplashScreenProps) {
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background gap-5 select-none">
-      <span className="relative flex h-3 w-3">
-        <span className="absolute inline-flex h-full w-full rounded-full bg-violet-500 opacity-75 blur-[6px] animate-pulse" />
-        <span className="relative inline-flex h-3 w-3 rounded-full bg-violet-500" />
-      </span>
-
-      <h1 className="text-2xl font-bold tracking-tight text-foreground">
-        devscope
-      </h1>
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background gap-6 select-none">
+      <img
+        src={logoWordmark}
+        alt="devscope"
+        className="h-20 w-auto drop-shadow-[0_0_30px_rgba(139,92,246,0.35)]"
+        draggable={false}
+      />
 
       {error ? (
         <p className="text-sm text-destructive max-w-md text-center px-6">
