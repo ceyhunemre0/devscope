@@ -232,10 +232,14 @@ def create_app() -> FastAPI:
         return out
 
     @app.get("/api/reports", response_model=list[ReportOut])
-    def list_reports(limit: int = 50) -> list[ReportOut]:
+    def list_reports(limit: int = 50, project_id: int | None = None) -> list[ReportOut]:
         limit = max(1, min(limit, 200))
         with session() as s:
-            rows = ReportRepo(s).list_by_type("standup")[:limit]
+            repo = ReportRepo(s)
+            if project_id is not None:
+                rows = repo.list_by_type_and_project("standup", project_id)[:limit]
+            else:
+                rows = repo.list_by_type("standup")[:limit]
             return [ReportOut.model_validate(r, from_attributes=True) for r in rows]
 
     @app.post("/api/actions/run-today", response_model=ReportOut)

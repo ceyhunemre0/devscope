@@ -18,6 +18,7 @@ export interface ProjectOut {
 
 export interface ReportOut {
   id: number;
+  project_id: number | null;
   type: string;
   content: string;
   period_start: string | null;

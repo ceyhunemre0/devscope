@@ -143,3 +143,11 @@ class ReportRepo:
     def list_by_type(self, type: str) -> list[Report]:
         stmt = select(Report).where(Report.type == type).order_by(Report.generated_at.desc())
         return list(self.session.scalars(stmt))
+
+    def list_by_type_and_project(self, type: str, project_id: int) -> list[Report]:
+        stmt = (
+            select(Report)
+            .where(Report.type == type, Report.project_id == project_id)
+            .order_by(Report.generated_at.desc())
+        )
+        return list(self.session.scalars(stmt))

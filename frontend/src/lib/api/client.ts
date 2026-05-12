@@ -61,7 +61,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ items }),
     }),
-  listReports: (limit = 50) => request<ReportOut[]>(`/reports?limit=${limit}`),
+  listReports: (limit = 50, projectId?: number) => {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (projectId != null) params.set("project_id", String(projectId));
+    return request<ReportOut[]>(`/reports?${params.toString()}`);
+  },
   runToday: (body: RunTodayIn) =>
     request<ReportOut>('/actions/run-today', { method: 'POST', body: JSON.stringify(body) }),
   getSettings: () => request<SettingsOut>('/settings'),
