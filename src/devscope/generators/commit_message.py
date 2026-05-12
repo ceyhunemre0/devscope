@@ -51,4 +51,4 @@ class CommitMessageGenerator:
             max_tokens=400,
             temperature=0.2,
         )
-        return GeneratorOutput(content=response.content.strip(), purpose="commit_message")
+        return GeneratorOutput(content=response.text.strip(), purpose="commit_message")
