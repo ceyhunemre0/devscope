@@ -66,7 +66,11 @@ def test_projects_add_rejects_non_repo(isolated_home, tmp_path):
     runner.invoke(app, ["init"])
     result = runner.invoke(app, ["projects", "add", str(tmp_path), "--name", "x"])
     assert result.exit_code != 0
-    assert "not a git" in result.output.lower()
+    # Rich wraps console output to terminal width; CI's narrow runner inserts a
+    # newline between "not a" and "git repository", so collapse whitespace
+    # before asserting on the phrase.
+    flattened = " ".join(result.output.lower().split())
+    assert "not a git repository" in flattened
 
 
 def test_today_runs_end_to_end(isolated_home, repo_path):
