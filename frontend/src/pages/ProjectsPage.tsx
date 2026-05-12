@@ -1,6 +1,5 @@
 import { PageHeader } from "@/components/PageHeader";
-import { AddProjectForm } from "@/components/projects/AddProjectForm";
-import { DiscoverForm } from "@/components/projects/DiscoverForm";
+import { AddProjectPanel } from "@/components/projects/AddProjectPanel";
 import { ProjectsTable } from "@/components/projects/ProjectsTable";
 
 export default function ProjectsPage() {
@@ -12,8 +11,7 @@ export default function ProjectsPage() {
         lead="devscope scans these for commit activity."
       />
       <div className="space-y-6">
-        <AddProjectForm />
-        <DiscoverForm />
+        <AddProjectPanel />
         <ProjectsTable />
       </div>
     </>

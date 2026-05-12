@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api/client";
 import type { DiscoveredRepo } from "@/lib/api/types";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -54,59 +53,49 @@ export function DiscoverForm() {
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <CardTitle>Discover from a folder</CardTitle>
-          <CardDescription>
-            Scan a directory tree for git repositories and add them in bulk.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} noValidate>
-            <div className="flex flex-wrap gap-3 items-end">
-              <div className="flex flex-col gap-1.5 flex-1 min-w-[200px]">
-                <Label htmlFor="discover-root">Root folder</Label>
-                <Input
-                  id="discover-root"
-                  value={root}
-                  onChange={(e) => setRoot(e.target.value)}
-                  placeholder="/Users/you/Code"
-                  required
-                />
-              </div>
-              <div className="flex flex-col gap-1.5 w-24 shrink-0">
-                <Label htmlFor="discover-depth">Depth</Label>
-                <Input
-                  id="discover-depth"
-                  type="number"
-                  value={depth}
-                  min={1}
-                  max={6}
-                  onChange={(e) =>
-                    setDepth(Math.min(6, Math.max(1, Number(e.target.value))))
-                  }
-                />
-              </div>
-              <Button
-                type="submit"
-                disabled={scanMutation.isPending || !root.trim()}
-                className="shrink-0"
-              >
-                {scanMutation.isPending ? "Scanning…" : "Scan"}
-              </Button>
-            </div>
+      <form onSubmit={handleSubmit} noValidate>
+        <div className="flex flex-wrap gap-3 items-end">
+          <div className="flex flex-col gap-1.5 flex-1 min-w-[200px]">
+            <Label htmlFor="discover-root">Root folder</Label>
+            <Input
+              id="discover-root"
+              value={root}
+              onChange={(e) => setRoot(e.target.value)}
+              placeholder="/Users/you/Code"
+              required
+            />
+          </div>
+          <div className="flex flex-col gap-1.5 w-24 shrink-0">
+            <Label htmlFor="discover-depth">Depth</Label>
+            <Input
+              id="discover-depth"
+              type="number"
+              value={depth}
+              min={1}
+              max={6}
+              onChange={(e) =>
+                setDepth(Math.min(6, Math.max(1, Number(e.target.value))))
+              }
+            />
+          </div>
+          <Button
+            type="submit"
+            disabled={scanMutation.isPending || !root.trim()}
+            className="shrink-0"
+          >
+            {scanMutation.isPending ? "Scanning…" : "Scan"}
+          </Button>
+        </div>
 
-            {errorMsg && (
-              <p className="mt-2 text-sm text-destructive">{errorMsg}</p>
-            )}
-            {successVisible && (
-              <p className="mt-2 text-sm text-emerald-500">
-                Projects added successfully.
-              </p>
-            )}
-          </form>
-        </CardContent>
-      </Card>
+        {errorMsg && (
+          <p className="mt-2 text-sm text-destructive">{errorMsg}</p>
+        )}
+        {successVisible && (
+          <p className="mt-2 text-sm text-emerald-500">
+            Projects added successfully.
+          </p>
+        )}
+      </form>
 
       <DiscoverDialog
         key={dialogKey}

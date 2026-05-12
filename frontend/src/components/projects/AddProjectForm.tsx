@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api/client";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -45,55 +44,45 @@ export function AddProjectForm() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Add a project</CardTitle>
-        <CardDescription>
-          Point devscope at a local git repository by path.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} noValidate>
-          <div className="flex flex-wrap gap-3 items-end">
-            <div className="flex flex-col gap-1.5 flex-1 min-w-[200px]">
-              <Label htmlFor="add-path">Path</Label>
-              <Input
-                id="add-path"
-                value={path}
-                onChange={(e) => setPath(e.target.value)}
-                placeholder="/Users/you/Code/my-repo"
-                required
-              />
-            </div>
-            <div className="flex flex-col gap-1.5 flex-1 min-w-[160px]">
-              <Label htmlFor="add-name">Display name</Label>
-              <Input
-                id="add-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="my-repo"
-                required
-              />
-            </div>
-            <Button
-              type="submit"
-              disabled={mutation.isPending || !path.trim() || !name.trim()}
-              className="shrink-0"
-            >
-              {mutation.isPending ? "Adding…" : "Add"}
-            </Button>
-          </div>
+    <form onSubmit={handleSubmit} noValidate>
+      <div className="flex flex-wrap gap-3 items-end">
+        <div className="flex flex-col gap-1.5 flex-1 min-w-[200px]">
+          <Label htmlFor="add-path">Path</Label>
+          <Input
+            id="add-path"
+            value={path}
+            onChange={(e) => setPath(e.target.value)}
+            placeholder="/Users/you/Code/my-repo"
+            required
+          />
+        </div>
+        <div className="flex flex-col gap-1.5 flex-1 min-w-[160px]">
+          <Label htmlFor="add-name">Display name</Label>
+          <Input
+            id="add-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="my-repo"
+            required
+          />
+        </div>
+        <Button
+          type="submit"
+          disabled={mutation.isPending || !path.trim() || !name.trim()}
+          className="shrink-0"
+        >
+          {mutation.isPending ? "Adding…" : "Add"}
+        </Button>
+      </div>
 
-          {errorMsg && (
-            <p className="mt-2 text-sm text-destructive">{errorMsg}</p>
-          )}
-          {successVisible && (
-            <p className="mt-2 text-sm text-emerald-500">
-              Project added successfully.
-            </p>
-          )}
-        </form>
-      </CardContent>
-    </Card>
+      {errorMsg && (
+        <p className="mt-2 text-sm text-destructive">{errorMsg}</p>
+      )}
+      {successVisible && (
+        <p className="mt-2 text-sm text-emerald-500">
+          Project added successfully.
+        </p>
+      )}
+    </form>
   );
 }
