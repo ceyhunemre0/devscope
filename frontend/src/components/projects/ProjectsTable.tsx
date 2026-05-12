@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -129,8 +129,43 @@ function ProjectReports({ projectId }: { projectId: number }) {
   );
 }
 
+type SortKey = "name" | "last_activity_at";
+type SortDir = "asc" | "desc";
+
+function SortIndicator({ active, dir }: { active: boolean; dir: SortDir }) {
+  if (!active) return <span className="text-muted-foreground/40">↕</span>;
+  return <span className="text-foreground">{dir === "asc" ? "↑" : "↓"}</span>;
+}
+
+function PathCell({ path }: { path: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy(e: React.MouseEvent) {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(path);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard may be unavailable in sandboxed contexts */
+    }
+  }
+
+  return (
+    <button
+      onClick={copy}
+      className="block w-full text-left font-mono text-xs text-muted-foreground hover:text-foreground transition-colors truncate"
+      title={copied ? "Copied" : `Click to copy · ${path}`}
+    >
+      {copied ? "✓ copied" : path}
+    </button>
+  );
+}
+
 export function ProjectsTable() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>("last_activity_at");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const { data: projects, isLoading } = useQuery({
     queryKey: ["projects"],
@@ -140,6 +175,35 @@ export function ProjectsTable() {
   function toggle(id: number) {
     setExpandedId((current) => (current === id ? null : id));
   }
+
+  function onSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(key === "name" ? "asc" : "desc");
+    }
+  }
+
+  const sorted = useMemo(() => {
+    if (!projects) return [];
+    const list = [...projects];
+    list.sort((a, b) => {
+      if (sortKey === "name") {
+        const cmp = a.name.localeCompare(b.name);
+        return sortDir === "asc" ? cmp : -cmp;
+      }
+      // null timestamps sort to the end regardless of direction
+      const av = a.last_activity_at ? new Date(a.last_activity_at).getTime() : null;
+      const bv = b.last_activity_at ? new Date(b.last_activity_at).getTime() : null;
+      if (av === null && bv === null) return 0;
+      if (av === null) return 1;
+      if (bv === null) return -1;
+      const cmp = av - bv;
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return list;
+  }, [projects, sortKey, sortDir]);
 
   return (
     <Card>
@@ -151,10 +215,24 @@ export function ProjectsTable() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-8" aria-hidden />
-              <TableHead>Name</TableHead>
+              <TableHead>
+                <button
+                  onClick={() => onSort("name")}
+                  className="flex items-center gap-1 hover:text-foreground transition-colors"
+                >
+                  Name <SortIndicator active={sortKey === "name"} dir={sortDir} />
+                </button>
+              </TableHead>
               <TableHead>Path</TableHead>
               <TableHead>State</TableHead>
-              <TableHead>Last activity</TableHead>
+              <TableHead>
+                <button
+                  onClick={() => onSort("last_activity_at")}
+                  className="flex items-center gap-1 hover:text-foreground transition-colors"
+                >
+                  Last activity <SortIndicator active={sortKey === "last_activity_at"} dir={sortDir} />
+                </button>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -169,7 +247,7 @@ export function ProjectsTable() {
               </TableRow>
             )}
 
-            {!isLoading && (!projects || projects.length === 0) && (
+            {!isLoading && sorted.length === 0 && (
               <TableRow>
                 <TableCell
                   colSpan={5}
@@ -181,8 +259,8 @@ export function ProjectsTable() {
             )}
 
             {!isLoading &&
-              projects &&
-              projects.map((project) => {
+              sorted.length > 0 &&
+              sorted.map((project) => {
                 const isOpen = expandedId === project.id;
                 return (
                   <Fragment key={project.id}>
@@ -221,13 +299,11 @@ export function ProjectsTable() {
                           <WorkingTreeBadge projectId={project.id} />
                         </div>
                       </TableCell>
-                      <TableCell className="max-w-[280px]">
-                        <span
-                          className="block truncate font-mono text-xs text-muted-foreground"
-                          title={project.path}
-                        >
-                          {project.path}
-                        </span>
+                      <TableCell
+                        className="max-w-[280px]"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <PathCell path={project.path} />
                       </TableCell>
                       <TableCell>
                         {project.state === "active" ? (
