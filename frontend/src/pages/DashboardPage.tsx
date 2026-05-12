@@ -23,6 +23,7 @@ export default function DashboardPage() {
 
   const [provider, setProvider] = useState<string>("auto");
   const [sinceHours, setSinceHours] = useState<number>(24);
+  const [project, setProject] = useState<string>("");
   const [runError, setRunError] = useState<string | null>(null);
 
   const { data: dashboard } = useQuery({
@@ -35,16 +36,23 @@ export default function DashboardPage() {
     queryFn: () => api.listReports(1).then((rs) => rs[0] ?? null),
   });
 
+  const { data: projects, isLoading: projectsLoading } = useQuery({
+    queryKey: ["projects"],
+    queryFn: api.listProjects,
+  });
+
   const runMutation = useMutation({
     mutationFn: () =>
       api.runToday({
         since_hours: sinceHours,
         provider: provider === "auto" ? undefined : provider,
+        project: project || undefined,
       }),
     onSuccess: () => {
       setRunError(null);
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["latest-report"] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
     },
     onError: (err: unknown) => {
       if (err instanceof ApiError) {
@@ -128,12 +136,32 @@ export default function DashboardPage() {
             <div>
               <CardTitle>Generate standup</CardTitle>
               <CardDescription className="mt-1">
-                Summarise the last N hours of commits across all tracked projects.
+                Summarise the last N hours of commits across all tracked projects (or a single one).
               </CardDescription>
             </div>
 
             {/* Inline form */}
             <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <Select value={project} onValueChange={(val) => setProject(val ?? "")}>
+                <SelectTrigger className="w-[10rem]">
+                  <SelectValue placeholder="All projects" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All projects</SelectItem>
+                  {projectsLoading ? (
+                    <SelectItem value="_loading" disabled>
+                      Loading projects…
+                    </SelectItem>
+                  ) : (
+                    projects?.map((p) => (
+                      <SelectItem key={p.id} value={p.name}>
+                        {p.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+
               <Select value={provider} onValueChange={(val) => setProvider(val as string)}>
                 <SelectTrigger className="w-[110px]">
                   <SelectValue />

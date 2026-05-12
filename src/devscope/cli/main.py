@@ -125,9 +125,15 @@ def today(
         help="LLM provider: auto | openai | ollama. 'auto' uses OpenAI if "
         "OPENAI_API_KEY is set, else Ollama.",
     ),
+    project_name: str | None = typer.Option(
+        None,
+        "--project",
+        "-P",
+        help="Scope to a single project by name. Defaults to all active projects.",
+    ),
 ) -> None:
     """Generate a standup summary from the last N hours of activity across all projects."""
-    asyncio.run(_today_impl(since_hours, provider))
+    asyncio.run(_today_impl(since_hours, provider, project_name))
 
 
 def _build_chain(
@@ -149,7 +155,11 @@ def _build_chain(
     raise typer.BadParameter(f"Unknown provider: {provider_choice}")
 
 
-async def _today_impl(since_hours: int, provider_choice: str = "auto") -> None:
+async def _today_impl(
+    since_hours: int,
+    provider_choice: str = "auto",
+    project_name: str | None = None,
+) -> None:
     settings = load_settings()
     engine = make_engine(settings.storage.db_path)
     SessionLocal = session_factory(engine)
@@ -158,8 +168,19 @@ async def _today_impl(since_hours: int, provider_choice: str = "auto") -> None:
     since = now - timedelta(hours=since_hours)
 
     events_by_project: dict[str, list[Event]] = {}
+    scoped_project_id: int | None = None
+
     with SessionLocal() as session:
-        projects = ProjectRepo(session).list_active()
+        project_repo = ProjectRepo(session)
+        if project_name is not None:
+            matched = project_repo.get_by_name(project_name)
+            if matched is None:
+                raise typer.BadParameter(f"unknown project: {project_name}")
+            projects = [matched]
+            scoped_project_id = matched.id
+        else:
+            projects = project_repo.list_active()
+
         event_repo = EventRepo(session)
         for project in projects:
             repo_path = Path(project.path)
@@ -201,7 +222,7 @@ async def _today_impl(since_hours: int, provider_choice: str = "auto") -> None:
         )
 
         ReportRepo(session).save(
-            project_id=None,
+            project_id=scoped_project_id,
             type="standup",
             content=output.content,
             period_start=since,

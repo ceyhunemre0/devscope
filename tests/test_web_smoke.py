@@ -175,3 +175,53 @@ def test_settings_shows_env_var_active(isolated_home, monkeypatch):
     resp = c.get("/api/settings")
     assert resp.status_code == 200
     assert resp.json()["openai_env_active"] is True
+
+
+class FakeOllama:
+    name = "ollama"
+
+    async def complete(self, req):
+        from devscope.llm.base import LLMResponse
+
+        return LLMResponse(
+            text="# Standup\n- did stuff\n",
+            prompt_tokens=20,
+            output_tokens=10,
+            cost_usd=0.0,
+        )
+
+
+def test_run_today_with_project_filter(isolated_home, repo_path, monkeypatch):
+    """POST /api/actions/run-today with project= should scope to that project."""
+    from unittest.mock import patch
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    c = _client(isolated_home)
+
+    # Register the project
+    resp = c.post("/api/projects", json={"path": str(repo_path), "name": "demo"})
+    assert resp.status_code == 201
+    project_id = resp.json()["id"]
+
+    with patch("devscope.cli.main.OllamaProvider", return_value=FakeOllama()):
+        resp = c.post(
+            "/api/actions/run-today",
+            json={"since_hours": 24, "provider": "ollama", "project": "demo"},
+        )
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["project_id"] == project_id
+
+
+def test_run_today_with_unknown_project_400(isolated_home, monkeypatch):
+    """POST /api/actions/run-today with unknown project= should return 400."""
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    c = _client(isolated_home)
+
+    resp = c.post(
+        "/api/actions/run-today",
+        json={"since_hours": 24, "provider": "ollama", "project": "nope"},
+    )
+    assert resp.status_code == 400
+    assert "nope" in resp.text

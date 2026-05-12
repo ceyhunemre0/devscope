@@ -55,6 +55,7 @@ class ProjectOut(BaseModel):
 
 class ReportOut(BaseModel):
     id: int
+    project_id: int | None = None
     type: str
     content: str
     period_start: datetime | None = None
@@ -94,6 +95,7 @@ class BulkAddIn(BaseModel):
 class RunTodayIn(BaseModel):
     since_hours: int = Field(default=24, ge=1, le=720)
     provider: str = Field(default="auto", pattern=r"^(auto|openai|ollama)$")
+    project: str | None = None
 
 
 class SettingsOut(BaseModel):
@@ -226,7 +228,10 @@ def create_app() -> FastAPI:
         except Exception as exc:  # typer.BadParameter or similar
             raise HTTPException(400, str(exc)) from exc
 
-        await _today_impl(body.since_hours, body.provider)
+        try:
+            await _today_impl(body.since_hours, body.provider, body.project)
+        except Exception as exc:  # typer.BadParameter for unknown project
+            raise HTTPException(400, str(exc)) from exc
 
         with session() as s:
             reports = ReportRepo(s).list_by_type("standup")

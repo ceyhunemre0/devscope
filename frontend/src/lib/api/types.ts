@@ -62,6 +62,7 @@ export interface DiscoverIn {
 export interface RunTodayIn {
   since_hours?: number;
   provider?: string;
+  project?: string | null;
 }
 
 export interface SettingsIn {
