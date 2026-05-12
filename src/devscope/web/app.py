@@ -31,6 +31,8 @@ from devscope.collectors.git_diff import (
 )
 from devscope.config import load_settings
 from devscope.generators.commit_message import CommitMessageGenerator
+from devscope.github import client as gh_client
+from devscope.github.clone import CloneError, clone_repo
 from devscope.llm.budget import BudgetGuard
 from devscope.llm.router import LLMRouter
 from devscope.secrets import (
@@ -153,6 +155,56 @@ class WorkingTreeStatusOut(BaseModel):
     insertions: int
     deletions: int
     untracked_count: int
+
+
+class GitHubStatusOut(BaseModel):
+    configured: bool
+    login: str | None = None
+    avatar_url: str | None = None
+    masked: str
+    error: str | None = None
+
+
+class GitHubTokenIn(BaseModel):
+    token: str | None = None
+    clear: bool = False
+
+
+class GitHubRepoOut(BaseModel):
+    full_name: str
+    name: str
+    description: str | None = None
+    private: bool
+    fork: bool
+    archived: bool
+    default_branch: str
+    clone_url: str
+    pushed_at: str | None = None
+    stargazers_count: int
+    language: str | None = None
+
+
+class GitHubContribDayOut(BaseModel):
+    date: str
+    count: int
+    color: str
+
+
+class GitHubContributionsOut(BaseModel):
+    login: str
+    total: int
+    commits: int
+    issues: int
+    pull_requests: int
+    reviews: int
+    days: list[GitHubContribDayOut]
+
+
+class GitHubCloneIn(BaseModel):
+    full_name: str
+    clone_url: str
+    parent_dir: str
+    name: str | None = None
 
 
 # ---------- App factory ----------
@@ -353,6 +405,105 @@ def create_app() -> FastAPI:
         if latest is None:
             raise HTTPException(500, "report generation produced no output")
         return ReportOut.model_validate(latest, from_attributes=True)
+
+    # ---------- GitHub ----------
+
+    @app.get("/api/github/status", response_model=GitHubStatusOut)
+    async def github_status() -> GitHubStatusOut:
+        token = get_secret("GITHUB_PAT")
+        if not token:
+            return GitHubStatusOut(configured=False, masked=mask(None))
+        try:
+            user = await gh_client.whoami(token)
+        except gh_client.GitHubError as exc:
+            return GitHubStatusOut(
+                configured=True, masked=mask(token), error=str(exc)
+            )
+        return GitHubStatusOut(
+            configured=True,
+            login=user.login,
+            avatar_url=user.avatar_url,
+            masked=mask(token),
+        )
+
+    @app.post("/api/github/token", response_model=GitHubStatusOut)
+    async def github_save_token(body: GitHubTokenIn) -> GitHubStatusOut:
+        if body.clear:
+            delete_secret("GITHUB_PAT")
+            return await github_status()
+        if not body.token or not body.token.strip():
+            raise HTTPException(400, "token must not be empty")
+        token = body.token.strip()
+        try:
+            await gh_client.whoami(token)
+        except gh_client.GitHubError as exc:
+            raise HTTPException(400, f"token rejected by GitHub: {exc}") from exc
+        set_secret("GITHUB_PAT", token)
+        return await github_status()
+
+    @app.get("/api/github/repos", response_model=list[GitHubRepoOut])
+    async def github_repos() -> list[GitHubRepoOut]:
+        token = get_secret("GITHUB_PAT")
+        if not token:
+            raise HTTPException(400, "GitHub token not configured")
+        try:
+            repos = await gh_client.list_repos(token)
+        except gh_client.GitHubError as exc:
+            raise HTTPException(502, str(exc)) from exc
+        return [GitHubRepoOut(**r.__dict__) for r in repos]
+
+    @app.get(
+        "/api/github/contributions", response_model=GitHubContributionsOut
+    )
+    async def github_contributions(days: int = 365) -> GitHubContributionsOut:
+        token = get_secret("GITHUB_PAT")
+        if not token:
+            raise HTTPException(400, "GitHub token not configured")
+        days = max(7, min(days, 365))
+        try:
+            c = await gh_client.contributions(token, days=days)
+        except gh_client.GitHubError as exc:
+            raise HTTPException(502, str(exc)) from exc
+        return GitHubContributionsOut(
+            login=c.login,
+            total=c.total,
+            commits=c.commits,
+            issues=c.issues,
+            pull_requests=c.pull_requests,
+            reviews=c.reviews,
+            days=[GitHubContribDayOut(date=d.date, count=d.count, color=d.color) for d in c.days],
+        )
+
+    @app.post(
+        "/api/github/clone", response_model=ProjectOut, status_code=201
+    )
+    async def github_clone(body: GitHubCloneIn) -> ProjectOut:
+        token = get_secret("GITHUB_PAT")
+        if not token:
+            raise HTTPException(400, "GitHub token not configured")
+        parent = Path(body.parent_dir).expanduser().resolve()
+        if not parent.exists() or not parent.is_dir():
+            raise HTTPException(400, f"parent_dir does not exist: {parent}")
+        repo_dir_name = (body.name or body.full_name.split("/")[-1]).strip()
+        if not repo_dir_name:
+            raise HTTPException(400, "could not derive a directory name")
+        target = parent / repo_dir_name
+        try:
+            clone_repo(token=token, clone_url=body.clone_url, target_path=target)
+        except CloneError as exc:
+            raise HTTPException(400, f"clone failed: {exc}") from exc
+
+        project_name = repo_dir_name
+        with session() as s:
+            repo = ProjectRepo(s)
+            if repo.get_by_name(project_name) is not None:
+                # Fall back to full_name if the bare repo name collides.
+                project_name = body.full_name.replace("/", "-")
+                if repo.get_by_name(project_name) is not None:
+                    raise HTTPException(409, f"project named '{project_name}' already exists")
+            project = repo.create(name=project_name, path=str(target))
+            s.commit()
+            return ProjectOut.model_validate(project, from_attributes=True)
 
     @app.get("/api/settings", response_model=SettingsOut)
     def get_settings_view() -> SettingsOut:

@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { Play } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { ReportContent } from "@/components/ReportContent";
+import { GitHubHeatmap } from "@/components/GitHubHeatmap";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -127,6 +128,10 @@ export default function DashboardPage() {
             <div className="mt-1">{llmBadge()}</div>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="mb-6">
+        <GitHubHeatmap />
       </div>
 
       {/* Generate standup card */}

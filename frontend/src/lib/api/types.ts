@@ -89,3 +89,53 @@ export interface WorkingTreeStatusOut {
   deletions: number;
   untracked_count: number;
 }
+
+export interface GitHubStatusOut {
+  configured: boolean;
+  login: string | null;
+  avatar_url: string | null;
+  masked: string;
+  error: string | null;
+}
+
+export interface GitHubTokenIn {
+  token?: string;
+  clear?: boolean;
+}
+
+export interface GitHubRepoOut {
+  full_name: string;
+  name: string;
+  description: string | null;
+  private: boolean;
+  fork: boolean;
+  archived: boolean;
+  default_branch: string;
+  clone_url: string;
+  pushed_at: string | null;
+  stargazers_count: number;
+  language: string | null;
+}
+
+export interface GitHubContribDayOut {
+  date: string;
+  count: number;
+  color: string;
+}
+
+export interface GitHubContributionsOut {
+  login: string;
+  total: number;
+  commits: number;
+  issues: number;
+  pull_requests: number;
+  reviews: number;
+  days: GitHubContribDayOut[];
+}
+
+export interface GitHubCloneIn {
+  full_name: string;
+  clone_url: string;
+  parent_dir: string;
+  name?: string;
+}

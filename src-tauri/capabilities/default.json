@@ -11,6 +11,10 @@
       "allow": [
         { "name": "devscope-backend", "sidecar": true }
       ]
+    },
+    {
+      "identifier": "shell:allow-open",
+      "allow": [{ "url": "^https?://" }]
     }
   ]
 }

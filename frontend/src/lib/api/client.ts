@@ -13,6 +13,11 @@ import type {
   SuggestCommitIn,
   SuggestCommitOut,
   WorkingTreeStatusOut,
+  GitHubStatusOut,
+  GitHubTokenIn,
+  GitHubRepoOut,
+  GitHubContributionsOut,
+  GitHubCloneIn,
 } from './types';
 
 export class ApiError extends Error {
@@ -81,4 +86,18 @@ export const api = {
     }),
   workingTreeStatus: (projectId: number) =>
     request<WorkingTreeStatusOut>(`/projects/${projectId}/working-tree-status`),
+  githubStatus: () => request<GitHubStatusOut>('/github/status'),
+  githubSaveToken: (body: GitHubTokenIn) =>
+    request<GitHubStatusOut>('/github/token', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  githubRepos: () => request<GitHubRepoOut[]>('/github/repos'),
+  githubContributions: (days = 365) =>
+    request<GitHubContributionsOut>(`/github/contributions?days=${days}`),
+  githubClone: (body: GitHubCloneIn) =>
+    request<ProjectOut>('/github/clone', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 };
