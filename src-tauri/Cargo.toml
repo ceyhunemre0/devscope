@@ -24,3 +24,25 @@ log = "0.4"
 tauri = { version = "2.11.1", features = [] }
 tauri-plugin-log = "2"
 tauri-plugin-shell = "2"
+
+# Rust backend port
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite", "macros", "migrate", "chrono", "json"] }
+git2 = { version = "0.19", default-features = false, features = ["vendored-libgit2", "https"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
+tera = "1.20"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "process", "sync", "time"] }
+chrono = { version = "0.4", features = ["serde"] }
+walkdir = "2.5"
+dirs = "5.0"
+thiserror = "1.0"
+toml = "0.8"
+async-trait = "0.1"
+tauri-specta = { version = "2.0.0-rc", features = ["typescript"] }
+specta = "2.0.0-rc"
+specta-typescript = "0.0.7"
+
+[dev-dependencies]
+tempfile = "3.10"
+insta = { version = "1.39", features = ["yaml"] }
+pretty_assertions = "1.4"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "test-util"] }
