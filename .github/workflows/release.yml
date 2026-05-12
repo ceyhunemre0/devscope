@@ -82,6 +82,10 @@ jobs:
         working-directory: frontend
         run: pnpm install --frozen-lockfile
 
+      - name: Build frontend (dist for Tauri to bundle)
+        working-directory: frontend
+        run: pnpm build
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -118,7 +122,10 @@ jobs:
           )
           $hiddenArgs = @()
           foreach ($m in $hiddenImports) { $hiddenArgs += @("--hidden-import", $m) }
-          $out = New-Item -ItemType Directory -Path "$env:RUNNER_TEMP\pyi" -Force
+          $root = $env:GITHUB_WORKSPACE
+          $out  = New-Item -ItemType Directory -Path "$env:RUNNER_TEMP\pyi" -Force
+          # --specpath relocates how --add-data and the entrypoint resolve their
+          # paths, so feed absolute paths instead of repo-relative ones.
           pyinstaller `
             --onedir `
             --name devscope-backend `
@@ -126,13 +133,13 @@ jobs:
             --workpath "$out\build" `
             --specpath "$out" `
             --noconfirm --clean `
-            --add-data "src/devscope/generators/prompts;devscope/generators/prompts" `
+            --add-data "$root\src\devscope\generators\prompts;devscope/generators/prompts" `
             --collect-all cffi `
             --collect-binaries pygit2 `
             @hiddenArgs `
-            src/devscope/server_main.py
-          Remove-Item -Recurse -Force "src-tauri\binaries\devscope-backend-bundle" -ErrorAction SilentlyContinue
-          Copy-Item -Recurse "$out\dist\devscope-backend" "src-tauri\binaries\devscope-backend-bundle"
+            "$root\src\devscope\server_main.py"
+          Remove-Item -Recurse -Force "$root\src-tauri\binaries\devscope-backend-bundle" -ErrorAction SilentlyContinue
+          Copy-Item -Recurse "$out\dist\devscope-backend" "$root\src-tauri\binaries\devscope-backend-bundle"
 
       - name: Build & publish Tauri bundle
         uses: tauri-apps/tauri-action@v0
