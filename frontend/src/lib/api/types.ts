@@ -70,3 +70,14 @@ export interface SettingsIn {
   openai_api_key?: string;
   clear_openai?: boolean;
 }
+
+export interface SuggestCommitIn {
+  provider?: "auto" | "openai" | "ollama";
+}
+
+export interface SuggestCommitOut {
+  has_changes: boolean;
+  status: string;
+  message: string;
+  truncated: boolean;
+}

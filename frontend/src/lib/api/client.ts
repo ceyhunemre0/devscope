@@ -10,6 +10,8 @@ import type {
   RunTodayIn,
   SettingsIn,
   SettingsOut,
+  SuggestCommitIn,
+  SuggestCommitOut,
 } from './types';
 
 export class ApiError extends Error {
@@ -71,4 +73,9 @@ export const api = {
   getSettings: () => request<SettingsOut>('/settings'),
   saveSettings: (body: SettingsIn) =>
     request<SettingsOut>('/settings', { method: 'POST', body: JSON.stringify(body) }),
+  suggestCommit: (projectId: number, body: SuggestCommitIn = {}) =>
+    request<SuggestCommitOut>(`/projects/${projectId}/suggest-commit`, {
+      method: 'POST',
+      body: JSON.stringify({ provider: 'auto', ...body }),
+    }),
 };

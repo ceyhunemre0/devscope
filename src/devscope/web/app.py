@@ -24,7 +24,11 @@ from sqlalchemy.orm import Session
 
 from devscope import __version__
 from devscope.cli.main import _build_chain, _today_impl
+from devscope.collectors.git_diff import collect_working_tree_changes
 from devscope.config import load_settings
+from devscope.generators.commit_message import CommitMessageGenerator
+from devscope.llm.budget import BudgetGuard
+from devscope.llm.router import LLMRouter
 from devscope.secrets import (
     _load_file as _load_secrets_file,
 )
@@ -34,7 +38,8 @@ from devscope.secrets import (
     mask,
     set_secret,
 )
-from devscope.storage.repositories import ProjectRepo, ReportRepo
+from devscope.storage.models import Project
+from devscope.storage.repositories import LLMCallRepo, ProjectRepo, ReportRepo
 from devscope.storage.session import init_db, make_engine, session_factory
 
 _FRONTEND_DIST = Path(__file__).resolve().parent.parent.parent.parent / "frontend" / "dist"
@@ -125,6 +130,17 @@ class SettingsOut(BaseModel):
 class SettingsIn(BaseModel):
     openai_api_key: str | None = None
     clear_openai: bool = False
+
+
+class SuggestCommitIn(BaseModel):
+    provider: str = Field(default="auto", pattern=r"^(auto|openai|ollama)$")
+
+
+class SuggestCommitOut(BaseModel):
+    has_changes: bool
+    status: str
+    message: str
+    truncated: bool
 
 
 # ---------- App factory ----------
@@ -241,6 +257,52 @@ def create_app() -> FastAPI:
             else:
                 rows = repo.list_by_type("standup")[:limit]
             return [ReportOut.model_validate(r, from_attributes=True) for r in rows]
+
+    @app.post(
+        "/api/projects/{project_id}/suggest-commit",
+        response_model=SuggestCommitOut,
+    )
+    async def suggest_commit(project_id: int, body: SuggestCommitIn) -> SuggestCommitOut:
+        with session() as s:
+            project = s.get(Project, project_id)
+            if project is None:
+                raise HTTPException(404, f"project {project_id} not found")
+            repo_path = Path(project.path)
+
+        changes = collect_working_tree_changes(repo_path)
+        if changes.is_empty:
+            return SuggestCommitOut(
+                has_changes=False, status="", message="", truncated=False
+            )
+
+        try:
+            chain, model_for = _build_chain(body.provider, settings)
+        except Exception as exc:
+            raise HTTPException(400, str(exc)) from exc
+
+        with session() as s:
+            llm_repo = LLMCallRepo(s)
+            guard = BudgetGuard(
+                repo=llm_repo,
+                monthly_usd=settings.llm.budget.monthly_usd,
+                hard_stop=settings.llm.budget.hard_stop,
+            )
+            router = LLMRouter(
+                chain=chain, guard=guard, repo=llm_repo, model_for=model_for
+            )
+            generator = CommitMessageGenerator(router=router)
+            try:
+                output = await generator.run(changes)
+            except Exception as exc:
+                raise HTTPException(502, f"LLM error: {exc}") from exc
+            s.commit()
+
+        return SuggestCommitOut(
+            has_changes=True,
+            status=changes.status,
+            message=output.content,
+            truncated=changes.truncated,
+        )
 
     @app.post("/api/actions/run-today", response_model=ReportOut)
     async def run_today(body: RunTodayIn) -> ReportOut:

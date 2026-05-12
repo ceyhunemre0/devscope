@@ -4,6 +4,7 @@ import { api } from "@/lib/api/client";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ReportListItem } from "@/components/ReportListItem";
+import { ProjectCommitSuggester } from "@/components/projects/ProjectCommitSuggester";
 import {
   Table,
   TableHeader,
@@ -156,8 +157,14 @@ export function ProjectsTable() {
                     </TableRow>
                     {isOpen && (
                       <TableRow className="bg-muted/20 hover:bg-muted/20">
-                        <TableCell colSpan={5} className="p-4">
-                          <ProjectReports projectId={project.id} />
+                        <TableCell colSpan={5} className="p-4 space-y-4">
+                          <ProjectCommitSuggester projectId={project.id} />
+                          <div>
+                            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              Reports
+                            </h4>
+                            <ProjectReports projectId={project.id} />
+                          </div>
                         </TableCell>
                       </TableRow>
                     )}
