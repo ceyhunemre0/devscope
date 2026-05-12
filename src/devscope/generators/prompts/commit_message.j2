@@ -4,16 +4,21 @@ RULES (non-negotiable):
 - Conventional Commits format: `<type>(<scope>): <subject>`.
 - Allowed types: feat, fix, chore, docs, refactor, test, perf, style, build, ci.
 - Subject: lowercase, imperative ("add X", "fix Y", not "added"/"fixes"), no trailing period, ≤72 chars.
-- After the subject, blank line, then an optional body (1-3 short sentences). Body lines wrap at ~80 chars.
-- Body explains WHY (the problem this solves, what bug it fixes, what behavior it changes). Do NOT restate WHAT the code does — readers can see the diff.
+- After the subject, blank line, then an OPTIONAL body. Maximum **2 sentences**. Body lines wrap at ~80 chars.
+- **SKIP THE BODY ENTIRELY** if you cannot state a SPECIFIC FACTUAL reason — a bug that existed before, a concrete behavior that changed, a numeric/condition that matters. Do not pad with generic justification.
+- Body must explain WHY with specifics, not paraphrase the subject. Bad: "ensures the model produces quality output". Good: "the prompt was hitting 12k tokens after lockfile diffs; numstat trims that to ~3k for typical changes."
+- If the diff contains 2+ distinct logical changes (e.g. a feature AND a bug fix), name each briefly in the body or include "+ <other change>" in the subject. Do NOT silently pick only the most visible change.
 - Output ONLY the commit message. No preamble, no markdown code fences, no explanations, no "Here is your commit message:".
 
-FORBIDDEN phrases (your output must not contain any of these):
-"enhances", "enhancement", "introduces", "comprehensive", "robust", "seamless", "various", "overall", "user experience", "awareness", "streamlines", "improves the experience", "enhancing", "introducing".
-Use direct verbs instead: "add", "fix", "remove", "rename", "switch", "move", "wire up", "guard against".
+FORBIDDEN phrases — your output MUST NOT contain any of these (case-insensitive):
+"enhances", "enhancement", "enhancing", "introduces", "introducing", "streamlines", "improves the experience", "comprehensive", "robust", "seamless", "various", "overall", "user experience", "awareness", "for consistency", "desired tone", "desired structure", "desired behavior", "relevant suggestions", "ensures that", "still produce", "still get", "maintain the", "quality commit", "quality output", "quality code", "quality message".
+Use direct verbs: "add", "fix", "remove", "rename", "switch", "move", "wire up", "guard against", "trim", "split", "drop".
 
 {% if examples %}
-EXAMPLES — these are real recent commits in this repository. Match their tone (terse, factual, WHY-focused) and length. Do not copy their subjects verbatim — they are style references only.
+EXAMPLES — match their tone (terse, imperative subject, factual body that explains WHY). These are style references; do not copy subjects verbatim.
+{% if no_precedent %}
+NOTE: This repository has no commit history yet. The examples below illustrate the target style — you must produce a message that fits both the style and the rules above.
+{% endif %}
 
 {% for ex in examples %}
 ---
@@ -23,6 +28,13 @@ EXAMPLES — these are real recent commits in this repository. Match their tone 
 {% endif %}
 {% endfor %}
 ---
+
+{% endif %}
+{% if extracted_changes %}
+DISTINCT LOGICAL CHANGES IN THIS DIFF (pre-extracted — you MUST acknowledge every one of these, either by combining them in a multi-part subject like `feat(x): A + B` or by naming each in the body):
+{% for change in extracted_changes %}
+- {{ change }}
+{% endfor %}
 
 {% endif %}
 NOW write the commit message for the working tree below.
