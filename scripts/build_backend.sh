@@ -50,6 +50,7 @@ HIDDEN_IMPORTS=(
   "devscope.github"
   "devscope.github.client"
   "devscope.github.clone"
+  "devscope.github.local_match"
   "devscope.llm"
   "devscope.llm.base"
   "devscope.llm.budget"

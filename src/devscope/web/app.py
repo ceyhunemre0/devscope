@@ -33,6 +33,7 @@ from devscope.config import load_settings
 from devscope.generators.commit_message import CommitMessageGenerator
 from devscope.github import client as gh_client
 from devscope.github.clone import CloneError, clone_repo
+from devscope.github.local_match import read_github_full_name
 from devscope.llm.budget import BudgetGuard
 from devscope.llm.router import LLMRouter
 from devscope.secrets import (
@@ -69,11 +70,21 @@ class ProjectOut(BaseModel):
     summary: str | None = None
     tech_stack: list[str] | None = None
     last_activity_at: datetime | None = None
+    github_full_name: str | None = None
 
     @field_validator("last_activity_at", mode="before")
     @classmethod
     def _aware_last_activity(cls, v: Any) -> Any:
         return _ensure_aware_utc(v) if isinstance(v, datetime) else v
+
+
+def _project_to_out(project: Project) -> ProjectOut:
+    """Convert a Project ORM row to ProjectOut, enriching with GitHub identity."""
+    base = ProjectOut.model_validate(project, from_attributes=True)
+    gh = read_github_full_name(Path(project.path))
+    if gh:
+        return base.model_copy(update={"github_full_name": gh})
+    return base
 
 
 class ReportOut(BaseModel):
@@ -264,7 +275,7 @@ def create_app() -> FastAPI:
     def list_projects() -> list[ProjectOut]:
         with session() as s:
             rows = ProjectRepo(s).list_active()
-            return [ProjectOut.model_validate(r, from_attributes=True) for r in rows]
+            return [_project_to_out(r) for r in rows]
 
     @app.post("/api/projects", response_model=ProjectOut, status_code=201)
     def add_project(body: AddProjectIn) -> ProjectOut:
@@ -280,7 +291,7 @@ def create_app() -> FastAPI:
                 raise HTTPException(409, f"project named '{body.name}' already exists")
             project = repo.create(name=body.name, path=str(repo_path))
             s.commit()
-            return ProjectOut.model_validate(project, from_attributes=True)
+            return _project_to_out(project)
 
     @app.post("/api/projects/discover", response_model=list[DiscoveredRepo])
     def discover(body: DiscoverIn) -> list[DiscoveredRepo]:
@@ -307,7 +318,7 @@ def create_app() -> FastAPI:
                 if repo.get_by_name(item.name) is not None:
                     continue
                 project = repo.create(name=item.name, path=str(p))
-                out.append(ProjectOut.model_validate(project, from_attributes=True))
+                out.append(_project_to_out(project))
             s.commit()
         return out
 
@@ -509,7 +520,7 @@ def create_app() -> FastAPI:
                     raise HTTPException(409, f"project named '{project_name}' already exists")
             project = repo.create(name=project_name, path=str(target))
             s.commit()
-            return ProjectOut.model_validate(project, from_attributes=True)
+            return _project_to_out(project)
 
     @app.get("/api/settings", response_model=SettingsOut)
     def get_settings_view() -> SettingsOut:

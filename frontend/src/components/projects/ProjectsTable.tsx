@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ReportListItem } from "@/components/ReportListItem";
 import { ProjectCommitSuggester } from "@/components/projects/ProjectCommitSuggester";
+import { openExternal } from "@/lib/external";
 import {
   Table,
   TableHeader,
@@ -201,8 +202,22 @@ export function ProjectsTable() {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium">{project.name}</span>
+                          {project.github_full_name && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openExternal(
+                                  `https://github.com/${project.github_full_name}`,
+                                ).catch(() => {});
+                              }}
+                              className="text-xs text-muted-foreground hover:text-foreground transition-colors font-mono"
+                              title="Open on GitHub"
+                            >
+                              ↗ {project.github_full_name}
+                            </button>
+                          )}
                           <WorkingTreeBadge projectId={project.id} />
                         </div>
                       </TableCell>

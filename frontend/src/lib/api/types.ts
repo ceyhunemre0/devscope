@@ -14,6 +14,7 @@ export interface ProjectOut {
   summary: string | null;
   tech_stack: string[] | null;
   last_activity_at: string | null;
+  github_full_name: string | null;
 }
 
 export interface ReportOut {

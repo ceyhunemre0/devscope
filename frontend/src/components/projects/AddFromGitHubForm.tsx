@@ -35,6 +35,19 @@ export function AddFromGitHubForm() {
     retry: false,
   });
 
+  const { data: projects } = useQuery({
+    queryKey: ["projects"],
+    queryFn: api.listProjects,
+  });
+
+  const trackedSet = useMemo(() => {
+    const s = new Set<string>();
+    for (const p of projects ?? []) {
+      if (p.github_full_name) s.add(p.github_full_name);
+    }
+    return s;
+  }, [projects]);
+
   const filtered = useMemo(() => {
     if (!repos) return [];
     const q = filter.trim().toLowerCase();
@@ -128,15 +141,26 @@ export function AddFromGitHubForm() {
           <div className="max-h-[320px] overflow-y-auto rounded-lg border border-border divide-y divide-border">
             {filtered.map((repo) => {
               const isSelected = selectedRepo?.full_name === repo.full_name;
+              const isTracked = trackedSet.has(repo.full_name);
               return (
                 <button
                   key={repo.full_name}
-                  onClick={() => setSelectedRepo(repo)}
+                  onClick={() => !isTracked && setSelectedRepo(repo)}
+                  disabled={isTracked}
                   className={`w-full text-left px-3 py-2 flex flex-wrap items-center gap-2 transition-colors ${
-                    isSelected ? "bg-violet-500/10" : "hover:bg-accent/40"
+                    isTracked
+                      ? "opacity-50 cursor-not-allowed"
+                      : isSelected
+                        ? "bg-violet-500/10"
+                        : "hover:bg-accent/40"
                   }`}
                 >
                   <span className="font-medium text-sm">{repo.full_name}</span>
+                  {isTracked && (
+                    <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/20 text-[10px]">
+                      already tracked
+                    </Badge>
+                  )}
                   {repo.private && (
                     <Badge variant="outline" className="text-[10px]">private</Badge>
                   )}
