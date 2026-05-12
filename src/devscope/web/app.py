@@ -419,6 +419,12 @@ def create_app() -> FastAPI:
             return GitHubStatusOut(
                 configured=True, masked=mask(token), error=str(exc)
             )
+        except Exception as exc:  # belt-and-suspenders for raw transport errors
+            return GitHubStatusOut(
+                configured=True,
+                masked=mask(token),
+                error=f"unexpected error: {exc.__class__.__name__}",
+            )
         return GitHubStatusOut(
             configured=True,
             login=user.login,

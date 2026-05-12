@@ -91,55 +91,61 @@ def _raise_for(resp: httpx.Response) -> None:
 
 
 async def whoami(token: str) -> GitHubUser:
-    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-        resp = await client.get(f"{_API_BASE}/user", headers=_headers(token))
-        _raise_for(resp)
-        data = resp.json()
-        return GitHubUser(
-            login=data["login"],
-            name=data.get("name"),
-            avatar_url=data.get("avatar_url"),
-        )
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+            resp = await client.get(f"{_API_BASE}/user", headers=_headers(token))
+    except httpx.HTTPError as exc:
+        raise GitHubError(f"network error: {exc.__class__.__name__}") from exc
+    _raise_for(resp)
+    data = resp.json()
+    return GitHubUser(
+        login=data["login"],
+        name=data.get("name"),
+        avatar_url=data.get("avatar_url"),
+    )
 
 
 async def list_repos(token: str, *, max_pages: int = 5) -> list[GitHubRepo]:
     """Return repos the authenticated user can see, sorted by last push."""
     out: list[GitHubRepo] = []
-    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-        for page in range(1, max_pages + 1):
-            resp = await client.get(
-                f"{_API_BASE}/user/repos",
-                headers=_headers(token),
-                params={
-                    "per_page": 100,
-                    "page": page,
-                    "sort": "pushed",
-                    "direction": "desc",
-                    "affiliation": "owner,collaborator,organization_member",
-                },
-            )
-            _raise_for(resp)
-            batch = resp.json()
-            if not batch:
-                break
-            for item in batch:
-                out.append(
-                    GitHubRepo(
-                        full_name=item["full_name"],
-                        name=item["name"],
-                        description=item.get("description"),
-                        private=bool(item.get("private")),
-                        fork=bool(item.get("fork")),
-                        archived=bool(item.get("archived")),
-                        default_branch=item.get("default_branch") or "main",
-                        clone_url=item["clone_url"],
-                        pushed_at=item.get("pushed_at"),
-                        stargazers_count=int(item.get("stargazers_count") or 0),
-                        language=item.get("language"),
-                    )
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+            for page in range(1, max_pages + 1):
+                resp = await client.get(
+                    f"{_API_BASE}/user/repos",
+                    headers=_headers(token),
+                    params={
+                        "per_page": 100,
+                        "page": page,
+                        "sort": "pushed",
+                        "direction": "desc",
+                        "affiliation": "owner,collaborator,organization_member",
+                    },
                 )
-            if len(batch) < 100:
-                break
+                _raise_for(resp)
+                batch = resp.json()
+                if not batch:
+                    break
+                for item in batch:
+                    out.append(
+                        GitHubRepo(
+                            full_name=item["full_name"],
+                            name=item["name"],
+                            description=item.get("description"),
+                            private=bool(item.get("private")),
+                            fork=bool(item.get("fork")),
+                            archived=bool(item.get("archived")),
+                            default_branch=item.get("default_branch") or "main",
+                            clone_url=item["clone_url"],
+                            pushed_at=item.get("pushed_at"),
+                            stargazers_count=int(item.get("stargazers_count") or 0),
+                            language=item.get("language"),
+                        )
+                    )
+                if len(batch) < 100:
+                    break
+    except httpx.HTTPError as exc:
+        raise GitHubError(f"network error: {exc.__class__.__name__}") from exc
     return out
 
 
@@ -175,31 +181,34 @@ async def contributions(token: str, *, days: int = 365) -> Contributions:
             "to": until.strftime("%Y-%m-%dT%H:%M:%SZ"),
         },
     }
-    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-        resp = await client.post(_GRAPHQL_URL, headers=_headers(token), json=payload)
-        _raise_for(resp)
-        body = resp.json()
-        if "errors" in body:
-            raise GitHubError(f"GraphQL errors: {body['errors']}")
-        viewer = body["data"]["viewer"]
-        cc = viewer["contributionsCollection"]
-        cal = cc["contributionCalendar"]
-        out_days: list[ContributionDay] = []
-        for week in cal["weeks"]:
-            for day in week["contributionDays"]:
-                out_days.append(
-                    ContributionDay(
-                        date=day["date"],
-                        count=int(day["contributionCount"]),
-                        color=day["color"],
-                    )
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+            resp = await client.post(_GRAPHQL_URL, headers=_headers(token), json=payload)
+    except httpx.HTTPError as exc:
+        raise GitHubError(f"network error: {exc.__class__.__name__}") from exc
+    _raise_for(resp)
+    body = resp.json()
+    if "errors" in body:
+        raise GitHubError(f"GraphQL errors: {body['errors']}")
+    viewer = body["data"]["viewer"]
+    cc = viewer["contributionsCollection"]
+    cal = cc["contributionCalendar"]
+    out_days: list[ContributionDay] = []
+    for week in cal["weeks"]:
+        for day in week["contributionDays"]:
+            out_days.append(
+                ContributionDay(
+                    date=day["date"],
+                    count=int(day["contributionCount"]),
+                    color=day["color"],
                 )
-        return Contributions(
-            login=viewer["login"],
-            total=int(cal["totalContributions"]),
-            commits=int(cc["totalCommitContributions"]),
-            issues=int(cc["totalIssueContributions"]),
-            pull_requests=int(cc["totalPullRequestContributions"]),
-            reviews=int(cc["totalPullRequestReviewContributions"]),
-            days=out_days,
-        )
+            )
+    return Contributions(
+        login=viewer["login"],
+        total=int(cal["totalContributions"]),
+        commits=int(cc["totalCommitContributions"]),
+        issues=int(cc["totalIssueContributions"]),
+        pull_requests=int(cc["totalPullRequestContributions"]),
+        reviews=int(cc["totalPullRequestReviewContributions"]),
+        days=out_days,
+    )
