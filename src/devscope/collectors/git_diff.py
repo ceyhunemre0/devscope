@@ -8,7 +8,10 @@ from __future__ import annotations
 
 import subprocess
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
+
+import pygit2
 
 # Cap how much diff text is shipped to the LLM. Larger diffs are truncated with
 # a marker so the model is told the input is incomplete.
@@ -158,6 +161,23 @@ def summarize_working_tree(repo_path: Path) -> WorkingTreeSummary:
 # survive arbitrary whitespace.
 _FIELD_SEP = "\x1f"
 _RECORD_SEP = "\x1e"
+
+
+def read_last_commit_date(repo_path: Path) -> datetime | None:
+    """Return the HEAD commit's author timestamp (UTC-aware) or None.
+
+    Used to populate Project.last_activity_at on the fly so the UI always
+    reflects on-disk reality even when no devscope ingest run has updated
+    the stored value.
+    """
+    if not (repo_path / ".git").exists():
+        return None
+    try:
+        repo = pygit2.Repository(str(repo_path))
+        head = repo.head.peel(pygit2.Commit)
+        return datetime.fromtimestamp(head.author.time, UTC)
+    except (pygit2.GitError, KeyError, AttributeError, OSError):
+        return None
 
 
 def recent_commit_examples(repo_path: Path, n: int = 8) -> list[CommitExample]:

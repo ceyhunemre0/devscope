@@ -26,6 +26,7 @@ from devscope import __version__
 from devscope.cli.main import _build_chain, _today_impl
 from devscope.collectors.git_diff import (
     collect_working_tree_changes,
+    read_last_commit_date,
     recent_commit_examples,
     summarize_working_tree,
 )
@@ -79,12 +80,22 @@ class ProjectOut(BaseModel):
 
 
 def _project_to_out(project: Project) -> ProjectOut:
-    """Convert a Project ORM row to ProjectOut, enriching with GitHub identity."""
+    """Convert a Project ORM row to ProjectOut, enriching with on-disk facts.
+
+    Fills GitHub identity from the origin remote and falls back to the HEAD
+    commit's date when ``last_activity_at`` isn't persisted in the DB.
+    """
     base = ProjectOut.model_validate(project, from_attributes=True)
-    gh = read_github_full_name(Path(project.path))
+    updates: dict[str, Any] = {}
+    repo_path = Path(project.path)
+    gh = read_github_full_name(repo_path)
     if gh:
-        return base.model_copy(update={"github_full_name": gh})
-    return base
+        updates["github_full_name"] = gh
+    if base.last_activity_at is None:
+        last = read_last_commit_date(repo_path)
+        if last is not None:
+            updates["last_activity_at"] = last
+    return base.model_copy(update=updates) if updates else base
 
 
 class ReportOut(BaseModel):
