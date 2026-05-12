@@ -7,8 +7,18 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { api, ApiError } from "@/lib/api/client";
 import { openExternal } from "@/lib/external";
+
+type PendingClear = "openai" | "github" | null;
 
 const GITHUB_TOKEN_URL =
   "https://github.com/settings/tokens/new?scopes=repo,read:user&description=devscope";
@@ -19,10 +29,15 @@ export default function SettingsPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [clearError, setClearError] = useState<string | null>(null);
   const [savedVisible, setSavedVisible] = useState(false);
+  const [clearedVisible, setClearedVisible] = useState(false);
 
   const [ghToken, setGhToken] = useState("");
   const [ghSaveError, setGhSaveError] = useState<string | null>(null);
+  const [ghClearError, setGhClearError] = useState<string | null>(null);
   const [ghSavedVisible, setGhSavedVisible] = useState(false);
+  const [ghClearedVisible, setGhClearedVisible] = useState(false);
+
+  const [pendingClear, setPendingClear] = useState<PendingClear>(null);
 
   const { data: settings } = useQuery({
     queryKey: ["settings"],
@@ -39,6 +54,18 @@ export default function SettingsPage() {
     const timer = setTimeout(() => setSavedVisible(false), 3000);
     return () => clearTimeout(timer);
   }, [savedVisible]);
+
+  useEffect(() => {
+    if (!clearedVisible) return;
+    const timer = setTimeout(() => setClearedVisible(false), 3000);
+    return () => clearTimeout(timer);
+  }, [clearedVisible]);
+
+  useEffect(() => {
+    if (!ghClearedVisible) return;
+    const timer = setTimeout(() => setGhClearedVisible(false), 3000);
+    return () => clearTimeout(timer);
+  }, [ghClearedVisible]);
 
   const saveMutation = useMutation({
     mutationFn: () => api.saveSettings({ openai_api_key: apiKey }),
@@ -64,6 +91,8 @@ export default function SettingsPage() {
       queryClient.invalidateQueries({ queryKey: ["settings"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       setClearError(null);
+      setClearedVisible(true);
+      setPendingClear(null);
     },
     onError: (err: unknown) => {
       if (err instanceof ApiError) {
@@ -71,6 +100,7 @@ export default function SettingsPage() {
       } else {
         setClearError("Unexpected error. Please try again.");
       }
+      setPendingClear(null);
     },
   });
 
@@ -98,6 +128,15 @@ export default function SettingsPage() {
       queryClient.invalidateQueries({ queryKey: ["github-status"] });
       queryClient.invalidateQueries({ queryKey: ["github-repos"] });
       queryClient.invalidateQueries({ queryKey: ["github-contributions"] });
+      setGhClearError(null);
+      setGhClearedVisible(true);
+      setPendingClear(null);
+    },
+    onError: (err: unknown) => {
+      setGhClearError(
+        err instanceof ApiError ? err.detail : "Unexpected error. Please try again.",
+      );
+      setPendingClear(null);
     },
   });
 
@@ -164,7 +203,7 @@ export default function SettingsPage() {
               {settings?.openai_stored && (
                 <Button
                   variant="destructive"
-                  onClick={() => clearMutation.mutate()}
+                  onClick={() => setPendingClear("openai")}
                   disabled={isMutating}
                   className="shrink-0"
                 >
@@ -202,6 +241,9 @@ export default function SettingsPage() {
           {/* Feedback */}
           {savedVisible && (
             <p className="text-sm text-emerald-500">Saved.</p>
+          )}
+          {clearedVisible && (
+            <p className="text-sm text-emerald-500">Cleared.</p>
           )}
           {saveError && (
             <p className="text-sm text-destructive">{saveError}</p>
@@ -248,7 +290,7 @@ export default function SettingsPage() {
               {github?.configured && (
                 <Button
                   variant="destructive"
-                  onClick={() => ghClearMutation.mutate()}
+                  onClick={() => setPendingClear("github")}
                   disabled={ghClearMutation.isPending}
                   className="shrink-0"
                 >
@@ -301,11 +343,65 @@ export default function SettingsPage() {
           {ghSavedVisible && (
             <p className="text-sm text-emerald-500">Saved.</p>
           )}
+          {ghClearedVisible && (
+            <p className="text-sm text-emerald-500">Cleared.</p>
+          )}
           {ghSaveError && (
             <p className="text-sm text-destructive">{ghSaveError}</p>
           )}
+          {ghClearError && (
+            <p className="text-sm text-destructive">{ghClearError}</p>
+          )}
         </CardContent>
       </Card>
+
+      <Dialog
+        open={pendingClear !== null}
+        onOpenChange={(open) => {
+          if (!open && !clearMutation.isPending && !ghClearMutation.isPending) {
+            setPendingClear(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {pendingClear === "openai"
+                ? "Clear OpenAI API key?"
+                : "Clear GitHub token?"}
+            </DialogTitle>
+            <DialogDescription>
+              {pendingClear === "openai"
+                ? "This removes the stored key from your local secrets file. You can re-enter it anytime."
+                : "This removes the stored token. You'll need to paste a new one to use GitHub features."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setPendingClear(null)}
+              disabled={clearMutation.isPending || ghClearMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (pendingClear === "openai") {
+                  clearMutation.mutate();
+                } else if (pendingClear === "github") {
+                  ghClearMutation.mutate();
+                }
+              }}
+              disabled={clearMutation.isPending || ghClearMutation.isPending}
+            >
+              {clearMutation.isPending || ghClearMutation.isPending
+                ? "Clearing…"
+                : "Clear"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
