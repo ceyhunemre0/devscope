@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "devscope"
-version = "0.0.2"
+version = "0.0.3"
 description = "Self-hosted AI-powered developer productivity engine."
 readme = "README.md"
 requires-python = ">=3.11"
