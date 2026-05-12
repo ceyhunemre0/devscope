@@ -28,7 +28,7 @@ function Sidebar() {
   });
 
   return (
-    <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-border bg-sidebar">
+    <aside className="flex h-full w-60 shrink-0 flex-col border-r border-border bg-sidebar">
       {/* Brand */}
       <div className="flex h-14 items-center gap-2.5 px-4 border-b border-border">
         <span className="relative flex h-2.5 w-2.5">
@@ -74,7 +74,7 @@ function Sidebar() {
 
 export default function Layout({ children }: LayoutProps) {
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex h-screen bg-background">
       {/* Desktop sidebar */}
       <div className="hidden md:flex">
         <Sidebar />
