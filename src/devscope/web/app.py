@@ -425,9 +425,7 @@ def create_app() -> FastAPI:
             if project.name != new_name:
                 repo = ProjectRepo(s)
                 if repo.get_by_name(new_name) is not None:
-                    raise HTTPException(
-                        409, f"project named '{new_name}' already exists"
-                    )
+                    raise HTTPException(409, f"project named '{new_name}' already exists")
                 project.name = new_name
             project.updated_at = datetime.now(UTC)
             s.commit()
@@ -592,9 +590,7 @@ def create_app() -> FastAPI:
             total_del += c.deletions
 
         by_day = sorted(by_day_map.values(), key=lambda d: d.date)
-        by_project = sorted(
-            by_project_map.values(), key=lambda p: p.commits, reverse=True
-        )
+        by_project = sorted(by_project_map.values(), key=lambda p: p.commits, reverse=True)
 
         return StatsOut(
             since=since,
@@ -653,9 +649,7 @@ def create_app() -> FastAPI:
 
         changes = collect_working_tree_changes(repo_path)
         if changes.is_empty:
-            return SuggestCommitOut(
-                has_changes=False, status="", message="", truncated=False
-            )
+            return SuggestCommitOut(has_changes=False, status="", message="", truncated=False)
 
         try:
             chain, model_for = _build_chain(body.provider, settings)
@@ -669,9 +663,7 @@ def create_app() -> FastAPI:
                 monthly_usd=settings.llm.budget.monthly_usd,
                 hard_stop=settings.llm.budget.hard_stop,
             )
-            router = LLMRouter(
-                chain=chain, guard=guard, repo=llm_repo, model_for=model_for
-            )
+            router = LLMRouter(chain=chain, guard=guard, repo=llm_repo, model_for=model_for)
             generator = CommitMessageGenerator(router=router)
             examples = recent_commit_examples(repo_path, n=8)
             try:
@@ -716,9 +708,7 @@ def create_app() -> FastAPI:
         try:
             user = await gh_client.whoami(token)
         except gh_client.GitHubError as exc:
-            return GitHubStatusOut(
-                configured=True, masked=mask(token), error=str(exc)
-            )
+            return GitHubStatusOut(configured=True, masked=mask(token), error=str(exc))
         except Exception as exc:  # belt-and-suspenders for raw transport errors
             return GitHubStatusOut(
                 configured=True,
@@ -758,9 +748,7 @@ def create_app() -> FastAPI:
             raise HTTPException(502, str(exc)) from exc
         return [GitHubRepoOut(**r.__dict__) for r in repos]
 
-    @app.get(
-        "/api/github/contributions", response_model=GitHubContributionsOut
-    )
+    @app.get("/api/github/contributions", response_model=GitHubContributionsOut)
     async def github_contributions(days: int = 365) -> GitHubContributionsOut:
         token = get_secret("GITHUB_PAT")
         if not token:
@@ -780,9 +768,7 @@ def create_app() -> FastAPI:
             days=[GitHubContribDayOut(date=d.date, count=d.count, color=d.color) for d in c.days],
         )
 
-    @app.post(
-        "/api/github/clone", response_model=ProjectOut, status_code=201
-    )
+    @app.post("/api/github/clone", response_model=ProjectOut, status_code=201)
     async def github_clone(body: GitHubCloneIn) -> ProjectOut:
         token = get_secret("GITHUB_PAT")
         if not token:

@@ -68,9 +68,7 @@ def collect_commit_stats(
     return out
 
 
-def _commit_stats(
-    repo: pygit2.Repository, commit: pygit2.Commit
-) -> tuple[int, int, int]:
+def _commit_stats(repo: pygit2.Repository, commit: pygit2.Commit) -> tuple[int, int, int]:
     """Return (files_changed, insertions, deletions) for ``commit``.
 
     The initial commit is diffed against an empty tree so the first commit's

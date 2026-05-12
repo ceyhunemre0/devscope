@@ -109,9 +109,7 @@ async def list_verified_emails(token: str) -> list[str]:
     """Return the user's verified emails. Returns [] if PAT lacks user:email scope."""
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-            resp = await client.get(
-                f"{_API_BASE}/user/emails", headers=_headers(token)
-            )
+            resp = await client.get(f"{_API_BASE}/user/emails", headers=_headers(token))
     except httpx.HTTPError:
         return []
     # Missing scope → 403/404; treat as "we just can't see them" rather than erroring out.

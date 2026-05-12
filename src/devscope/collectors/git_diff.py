@@ -141,9 +141,7 @@ def summarize_working_tree(repo_path: Path) -> WorkingTreeSummary:
         if deleted_raw.isdigit():
             deletions += int(deleted_raw)
 
-    untracked = _run(
-        ["git", "ls-files", "--others", "--exclude-standard"], repo_path
-    )
+    untracked = _run(["git", "ls-files", "--others", "--exclude-standard"], repo_path)
     untracked_count = sum(1 for line in untracked.splitlines() if line.strip())
 
     has_changes = files_changed > 0 or untracked_count > 0
