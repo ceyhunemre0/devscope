@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api/client";
+import { openExternal } from "@/lib/external";
 
 const NAV_ITEMS = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard", end: true },
@@ -21,11 +22,27 @@ interface LayoutProps {
 }
 
 function Sidebar() {
+  const navigate = useNavigate();
   const { data: health } = useQuery({
     queryKey: ["health"],
     queryFn: api.health,
     staleTime: Infinity,
   });
+
+  const { data: github } = useQuery({
+    queryKey: ["github-status"],
+    queryFn: api.githubStatus,
+  });
+
+  const signedIn = !!github?.configured && !!github.login;
+
+  function handleProfileClick() {
+    if (signedIn && github?.login) {
+      openExternal(`https://github.com/${github.login}`).catch(() => {});
+    } else {
+      navigate("/settings");
+    }
+  }
 
   return (
     <aside className="flex h-full w-60 shrink-0 flex-col border-r border-border bg-sidebar">
@@ -62,11 +79,52 @@ function Sidebar() {
         ))}
       </nav>
 
-      {/* Footer */}
-      <div className="hidden md:block border-t border-border px-4 py-3">
-        <p className="text-xs text-muted-foreground/60 leading-relaxed">
-          {health ? `v${health.version}` : "–"} · local · single user
-        </p>
+      {/* Footer — GitHub profile or sign-in hint */}
+      <div className="hidden md:block border-t border-border">
+        <button
+          onClick={handleProfileClick}
+          className="w-full flex items-center gap-2.5 px-3 py-3 text-left hover:bg-accent/50 transition-colors"
+          title={signedIn ? `Open @${github!.login} on GitHub` : "Connect GitHub in Settings"}
+        >
+          {signedIn ? (
+            <>
+              {github?.avatar_url ? (
+                <img
+                  src={github.avatar_url}
+                  alt=""
+                  className="h-7 w-7 rounded-full ring-1 ring-border"
+                />
+              ) : (
+                <div className="h-7 w-7 rounded-full bg-violet-500/20 flex items-center justify-center text-xs font-semibold text-violet-300">
+                  {github!.login!.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-foreground truncate">
+                  @{github!.login}
+                </p>
+                <p className="text-[10px] text-muted-foreground/70 leading-tight">
+                  {health ? `v${health.version}` : "–"} · local
+                </p>
+              </div>
+              <span className="text-xs text-muted-foreground/60">↗</span>
+            </>
+          ) : (
+            <>
+              <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center text-xs text-muted-foreground">
+                ?
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-foreground">
+                  Connect GitHub
+                </p>
+                <p className="text-[10px] text-muted-foreground/70 leading-tight">
+                  {health ? `v${health.version}` : "–"} · local
+                </p>
+              </div>
+            </>
+          )}
+        </button>
       </div>
     </aside>
   );
