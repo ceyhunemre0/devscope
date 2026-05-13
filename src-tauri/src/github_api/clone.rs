@@ -18,7 +18,7 @@ pub fn clone_with_token(url: &str, dest: &Path, token: Option<&str>) -> AppResul
         log::warn!("clone failed for {url}: {e}");
         // Extract just the host for a safer frontend-facing message.
         let host = url
-            .splitn(4, '/')
+            .split('/')
             .nth(2)
             .unwrap_or("remote");
         AppError::Git(format!("clone failed for {host}"))

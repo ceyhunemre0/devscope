@@ -1,6 +1,6 @@
 [package]
 name = "devscope"
-version = "0.0.3"
+version = "0.1.0"
 description = "devscope desktop app"
 authors = []
 license = ""
