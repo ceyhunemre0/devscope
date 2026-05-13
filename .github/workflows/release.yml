@@ -1,13 +1,8 @@
 name: Release
 
-# Trigger: tag push like v0.1.0 -> builds installers for macOS / Windows / Linux
-# and attaches them to a GitHub Release so end-users can download and run them
-# directly. No git clone, no pnpm install, no Python required on their side.
-
 on:
   push:
-    tags:
-      - "v*"
+    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
@@ -20,32 +15,17 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - name: macos-arm64
-            runner: macos-14
-            python-arch: arm64
-            rust-target: aarch64-apple-darwin
-          - name: macos-x64
-            runner: macos-13
-            python-arch: x64
-            rust-target: x86_64-apple-darwin
-          - name: windows-x64
-            runner: windows-latest
-            python-arch: x64
-            rust-target: x86_64-pc-windows-msvc
-          - name: linux-x64
-            runner: ubuntu-22.04
-            python-arch: x64
-            rust-target: x86_64-unknown-linux-gnu
-
+          - { name: macos-arm64,   runner: macos-14,      rust-target: aarch64-apple-darwin }
+          - { name: macos-x64,     runner: macos-13,      rust-target: x86_64-apple-darwin }
+          - { name: windows-x64,   runner: windows-latest, rust-target: x86_64-pc-windows-msvc }
+          - { name: linux-x64,     runner: ubuntu-22.04,  rust-target: x86_64-unknown-linux-gnu }
     runs-on: ${{ matrix.platform.runner }}
-
     env:
       TAG_NAME: ${{ github.ref_name }}
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Linux build dependencies
+      - name: Install Linux build deps
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
@@ -57,89 +37,31 @@ jobs:
             libssl-dev \
             patchelf
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.platform.rust-target }}
-
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
 
-      - name: Install frontend dependencies
+      - name: Install frontend deps
         working-directory: frontend
         run: pnpm install --frozen-lockfile
 
-      - name: Build frontend (dist for Tauri to bundle)
+      - name: Generate TS types
+        run: pnpm --dir frontend gen-types
+
+      - name: Build frontend
         working-directory: frontend
         run: pnpm build
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          architecture: ${{ matrix.platform.python-arch }}
-
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-
-      - name: Build backend sidecar (POSIX)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          export VIRTUAL_ENV="${VIRTUAL_ENV:-$(python -c 'import sys; print(sys.prefix)')}"
-          bash scripts/build_backend.sh
-
-      - name: Build backend sidecar (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $hiddenImports = @(
-            "devscope","devscope.web","devscope.web.app","devscope.config","devscope.secrets",
-            "devscope.cli","devscope.cli.main","devscope.collectors","devscope.collectors.base",
-            "devscope.collectors.git_local","devscope.collectors.git_diff","devscope.collectors.git_stats",
-            "devscope.generators","devscope.generators.base","devscope.generators.standup",
-            "devscope.generators.commit_message","devscope.github","devscope.github.client",
-            "devscope.github.clone","devscope.github.local_match","devscope.llm","devscope.llm.base",
-            "devscope.llm.budget","devscope.llm.providers","devscope.llm.providers.ollama",
-            "devscope.llm.providers.openai","devscope.llm.router","devscope.storage",
-            "devscope.storage.models","devscope.storage.repositories","devscope.storage.session",
-            "sqlalchemy.dialects.sqlite","uvicorn.logging","uvicorn.protocols.http.h11_impl",
-            "uvicorn.protocols.websockets.websockets_impl","uvicorn.lifespan.on"
-          )
-          $hiddenArgs = @()
-          foreach ($m in $hiddenImports) { $hiddenArgs += @("--hidden-import", $m) }
-          $root = $env:GITHUB_WORKSPACE
-          $out  = New-Item -ItemType Directory -Path "$env:RUNNER_TEMP\pyi" -Force
-          # --specpath relocates how --add-data and the entrypoint resolve their
-          # paths, so feed absolute paths instead of repo-relative ones.
-          pyinstaller `
-            --onedir `
-            --name devscope-backend `
-            --distpath "$out\dist" `
-            --workpath "$out\build" `
-            --specpath "$out" `
-            --noconfirm --clean `
-            --add-data "$root\src\devscope\generators\prompts;devscope/generators/prompts" `
-            --collect-all cffi `
-            --collect-binaries pygit2 `
-            @hiddenArgs `
-            "$root\src\devscope\server_main.py"
-          Remove-Item -Recurse -Force "$root\src-tauri\binaries\devscope-backend-bundle" -ErrorAction SilentlyContinue
-          Copy-Item -Recurse "$out\dist\devscope-backend" "$root\src-tauri\binaries\devscope-backend-bundle"
 
       - name: Build & publish Tauri bundle
         uses: tauri-apps/tauri-action@v0
