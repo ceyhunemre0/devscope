@@ -7,19 +7,20 @@ use crate::db::models::Project;
 use crate::git::discover::{walk_for_repos, DiscoveredRepo};
 use super::AppState;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, specta::Type)]
 pub struct ProjectPatch {
     pub name: Option<String>,
     pub state: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, specta::Type)]
 pub struct BulkAddItem {
     pub path: String,
     pub name: String,
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn list_projects(state: State<'_, AppState>) -> AppResult<Vec<Project>> {
     let rows = sqlx::query_as::<_, Project>("SELECT * FROM projects ORDER BY created_at DESC")
         .fetch_all(&state.pool)
@@ -28,6 +29,7 @@ pub async fn list_projects(state: State<'_, AppState>) -> AppResult<Vec<Project>
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn add_project(state: State<'_, AppState>, path: String, name: String) -> AppResult<Project> {
     let p = std::path::Path::new(&path);
     if !p.join(".git").exists() {
@@ -44,6 +46,7 @@ pub async fn add_project(state: State<'_, AppState>, path: String, name: String)
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn update_project(state: State<'_, AppState>, id: i64, patch: ProjectPatch) -> AppResult<Project> {
     let now = Utc::now();
     if let Some(new_name) = patch.name {
@@ -63,6 +66,7 @@ pub async fn update_project(state: State<'_, AppState>, id: i64, patch: ProjectP
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn delete_project(state: State<'_, AppState>, id: i64) -> AppResult<()> {
     let affected = sqlx::query("DELETE FROM projects WHERE id = ?")
         .bind(id).execute(&state.pool).await?.rows_affected();
@@ -73,6 +77,7 @@ pub async fn delete_project(state: State<'_, AppState>, id: i64) -> AppResult<()
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn discover_repos(root: String, max_depth: u32) -> AppResult<Vec<DiscoveredRepo>> {
     let path = std::path::PathBuf::from(&root);
     if !path.is_dir() {
@@ -85,6 +90,7 @@ pub async fn discover_repos(root: String, max_depth: u32) -> AppResult<Vec<Disco
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn bulk_add_projects(state: State<'_, AppState>, items: Vec<BulkAddItem>) -> AppResult<Vec<Project>> {
     let mut out = Vec::with_capacity(items.len());
     let now = Utc::now();

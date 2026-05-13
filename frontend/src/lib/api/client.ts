@@ -1,124 +1,103 @@
-import { resolveBaseUrl } from './base';
+import { invoke } from "@tauri-apps/api/core";
 import type {
-  AddProjectIn,
-  DashboardOut,
-  DiscoverIn,
+  Project,
+  Report,
+  DashboardData,
+  StatsData,
   DiscoveredRepo,
-  HealthOut,
-  ProjectOut,
-  ReportOut,
-  RunTodayIn,
-  SettingsIn,
-  SettingsOut,
-  SuggestCommitIn,
-  SuggestCommitOut,
-  UpdateProjectIn,
-  WorkingTreeStatusOut,
-  GitHubStatusOut,
-  GitHubTokenIn,
-  GitHubRepoOut,
-  GitHubContributionsOut,
-  GitHubCloneIn,
-  StatsOut,
-  StatsQuery,
-} from './types';
+  Settings,
+  GithubStatus,
+  GithubRepo,
+  CommitContext,
+  CommitResult,
+  ProjectPatch,
+  BulkAddItem,
+  ReportFilter,
+  RunTodayArgs,
+  GenerateCommitArgs,
+  CloneArgs,
+  SettingsPatch,
+  HealthInfo,
+} from "./types";
+
+function formatDetail(kind: string, detail: unknown): string {
+  if (detail == null) return kind;
+  if (typeof detail === "string") return detail;
+  if (typeof detail === "object") {
+    const obj = detail as Record<string, unknown>;
+    if (typeof obj.message === "string") return obj.message;
+    if (typeof obj.field === "string" && typeof obj.message === "string") {
+      return `${obj.field}: ${obj.message}`;
+    }
+  }
+  return `${kind}: ${JSON.stringify(detail)}`;
+}
 
 export class ApiError extends Error {
-  readonly status: number;
+  readonly kind: string;
   readonly detail: string;
+  readonly raw: unknown;
 
-  constructor(status: number, detail: string) {
-    super(`API ${status}: ${detail}`);
-    this.name = 'ApiError';
-    this.status = status;
-    this.detail = detail;
+  constructor(payload: { kind: string; detail?: unknown }) {
+    const detailText = formatDetail(payload.kind, payload.detail);
+    super(detailText);
+    this.name = "ApiError";
+    this.kind = payload.kind;
+    this.detail = detailText;
+    this.raw = payload.detail;
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const base = await resolveBaseUrl();
-
-  const headers: Record<string, string> = {
-    ...(init?.body != null ? { 'Content-Type': 'application/json' } : {}),
-    ...(init?.headers as Record<string, string> | undefined),
-  };
-
-  const res = await fetch(`${base}${path}`, { ...init, headers });
-
-  if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      const json = await res.json();
-      detail = typeof json?.detail === 'string' ? json.detail : JSON.stringify(json);
-    } catch {
-      // keep statusText
+async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  try {
+    return await invoke<T>(cmd, args);
+  } catch (e) {
+    if (e && typeof e === "object" && "kind" in e) {
+      throw new ApiError(e as { kind: string; detail?: unknown });
     }
-    throw new ApiError(res.status, detail);
+    throw e;
   }
-
-  if (res.status === 204) {
-    return undefined as T;
-  }
-  return res.json() as Promise<T>;
 }
 
 export const api = {
-  health: () => request<HealthOut>('/health'),
-  dashboard: () => request<DashboardOut>('/dashboard'),
-  listProjects: () => request<ProjectOut[]>('/projects'),
-  addProject: (body: AddProjectIn) =>
-    request<ProjectOut>('/projects', { method: 'POST', body: JSON.stringify(body) }),
-  updateProject: (projectId: number, body: UpdateProjectIn) =>
-    request<ProjectOut>(`/projects/${projectId}`, {
-      method: 'PATCH',
-      body: JSON.stringify(body),
-    }),
-  deleteProject: (projectId: number) =>
-    request<void>(`/projects/${projectId}`, { method: 'DELETE' }),
-  discoverProjects: (body: DiscoverIn) =>
-    request<DiscoveredRepo[]>('/projects/discover', { method: 'POST', body: JSON.stringify(body) }),
-  bulkAddProjects: (items: AddProjectIn[]) =>
-    request<ProjectOut[]>('/projects/bulk-add', {
-      method: 'POST',
-      body: JSON.stringify({ items }),
-    }),
-  listReports: (limit = 50, projectId?: number) => {
-    const params = new URLSearchParams({ limit: String(limit) });
-    if (projectId != null) params.set("project_id", String(projectId));
-    return request<ReportOut[]>(`/reports?${params.toString()}`);
-  },
-  runToday: (body: RunTodayIn) =>
-    request<ReportOut>('/actions/run-today', { method: 'POST', body: JSON.stringify(body) }),
-  getSettings: () => request<SettingsOut>('/settings'),
-  saveSettings: (body: SettingsIn) =>
-    request<SettingsOut>('/settings', { method: 'POST', body: JSON.stringify(body) }),
-  suggestCommit: (projectId: number, body: SuggestCommitIn = {}) =>
-    request<SuggestCommitOut>(`/projects/${projectId}/suggest-commit`, {
-      method: 'POST',
-      body: JSON.stringify({ provider: 'auto', ...body }),
-    }),
-  workingTreeStatus: (projectId: number) =>
-    request<WorkingTreeStatusOut>(`/projects/${projectId}/working-tree-status`),
-  githubStatus: () => request<GitHubStatusOut>('/github/status'),
-  githubSaveToken: (body: GitHubTokenIn) =>
-    request<GitHubStatusOut>('/github/token', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    }),
-  githubRepos: () => request<GitHubRepoOut[]>('/github/repos'),
-  githubContributions: (days = 365) =>
-    request<GitHubContributionsOut>(`/github/contributions?days=${days}`),
-  githubClone: (body: GitHubCloneIn) =>
-    request<ProjectOut>('/github/clone', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    }),
-  stats: (q: StatsQuery) => {
-    const params = new URLSearchParams({ since: q.since });
-    if (q.until) params.set('until', q.until);
-    if (q.project_id != null) params.set('project_id', String(q.project_id));
-    if (q.commits_limit != null) params.set('commits_limit', String(q.commits_limit));
-    if (q.mine_only != null) params.set('mine_only', String(q.mine_only));
-    return request<StatsOut>(`/stats?${params.toString()}`);
-  },
+  health: () => call<HealthInfo>("health"),
+
+  listProjects: () => call<Project[]>("list_projects"),
+  addProject: (path: string, name: string) =>
+    call<Project>("add_project", { path, name }),
+  updateProject: (id: number, patch: ProjectPatch) =>
+    call<Project>("update_project", { id, patch }),
+  deleteProject: (id: number) => call<void>("delete_project", { id }),
+  discoverRepos: (root: string, maxDepth: number) =>
+    call<DiscoveredRepo[]>("discover_repos", { root, maxDepth }),
+  bulkAddProjects: (items: BulkAddItem[]) =>
+    call<Project[]>("bulk_add_projects", { items }),
+
+  listReports: (filter?: ReportFilter) =>
+    call<Report[]>("list_reports", { filter: filter ?? null }),
+  getReport: (id: number) => call<Report>("get_report", { id }),
+  runToday: (args: RunTodayArgs) => call<Report>("run_today", { args }),
+
+  getDashboard: () => call<DashboardData>("get_dashboard"),
+  getStats: (rangeDays: number) =>
+    call<StatsData>("get_stats", { rangeDays }),
+
+  getCommitContext: (projectId: number) =>
+    call<CommitContext>("get_commit_context", { projectId }),
+  generateCommitMessage: (args: GenerateCommitArgs) =>
+    call<CommitResult>("generate_commit_message", { args }),
+
+  githubStatus: () => call<GithubStatus>("github_status"),
+  setGithubToken: (token: string) =>
+    call<GithubStatus>("set_github_token", { token }),
+  listGithubRepos: () => call<GithubRepo[]>("list_github_repos"),
+  cloneGithubRepo: (args: CloneArgs) =>
+    call<Project>("clone_github_repo", { args }),
+
+  getSettings: () => call<Settings>("get_settings"),
+  saveSettings: (patch: SettingsPatch) =>
+    call<Settings>("save_settings", { patch }),
+  setSecret: (key: string, value: string) =>
+    call<void>("set_secret", { key, value }),
+  deleteSecret: (key: string) => call<void>("delete_secret", { key }),
 };

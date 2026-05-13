@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
-#[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
+#[derive(Debug, Clone, FromRow, Serialize, Deserialize, specta::Type)]
 pub struct Project {
     pub id: i64,
     pub name: String,
@@ -18,7 +18,7 @@ pub struct Project {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
+#[derive(Debug, Clone, FromRow, Serialize, Deserialize, specta::Type)]
 pub struct Event {
     pub id: i64,
     pub project_id: Option<i64>,
@@ -30,7 +30,7 @@ pub struct Event {
     pub collected_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
+#[derive(Debug, Clone, FromRow, Serialize, Deserialize, specta::Type)]
 pub struct LlmCall {
     pub id: i64,
     pub provider: String,
@@ -45,7 +45,7 @@ pub struct LlmCall {
     pub called_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
+#[derive(Debug, Clone, FromRow, Serialize, Deserialize, specta::Type)]
 pub struct Report {
     pub id: i64,
     pub project_id: Option<i64>,

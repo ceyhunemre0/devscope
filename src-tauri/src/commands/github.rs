@@ -7,13 +7,14 @@ use crate::github_api::{client::GithubClient, clone::clone_with_token, GithubRep
 use crate::secrets;
 use super::AppState;
 
-#[derive(Serialize)]
+#[derive(Serialize, specta::Type)]
 pub struct GithubStatus {
     pub configured: bool,
     pub user: Option<GithubUser>,
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn github_status() -> AppResult<GithubStatus> {
     let token = secrets::get("GITHUB_TOKEN")?;
     let Some(token) = token else {
@@ -24,6 +25,7 @@ pub async fn github_status() -> AppResult<GithubStatus> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn set_github_token(token: String) -> AppResult<GithubStatus> {
     if token.trim().is_empty() {
         secrets::delete("GITHUB_TOKEN")?;
@@ -35,12 +37,13 @@ pub async fn set_github_token(token: String) -> AppResult<GithubStatus> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn list_github_repos() -> AppResult<Vec<GithubRepo>> {
     let token = secrets::get("GITHUB_TOKEN")?.ok_or(AppError::GithubAuthRequired)?;
     GithubClient::new(token).list_repos(50).await
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, specta::Type)]
 pub struct CloneArgs {
     pub clone_url: String,
     pub dest_path: String,
@@ -48,6 +51,7 @@ pub struct CloneArgs {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn clone_github_repo(state: State<'_, AppState>, args: CloneArgs) -> AppResult<Project> {
     let token = secrets::get("GITHUB_TOKEN")?;
     let dest = std::path::PathBuf::from(&args.dest_path);

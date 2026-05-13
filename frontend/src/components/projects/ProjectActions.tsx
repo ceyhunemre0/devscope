@@ -19,7 +19,8 @@ export function ProjectActions({ projectId, currentName }: ProjectActionsProps) 
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const renameMutation = useMutation({
-    mutationFn: () => api.updateProject(projectId, { name: name.trim() }),
+    mutationFn: () =>
+      api.updateProject(projectId, { name: name.trim(), state: null }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       setRenameError(null);

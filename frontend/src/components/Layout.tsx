@@ -43,7 +43,8 @@ function Sidebar() {
     queryFn: api.githubStatus,
   });
 
-  const signedIn = !!github?.configured && !!github.login;
+  const signedIn = !!github?.configured && !!github.user;
+  const ghUser = github?.user ?? null;
 
   useLayoutEffect(() => {
     const nav = navRef.current;
@@ -69,8 +70,8 @@ function Sidebar() {
   }, [indicator, animateIndicator]);
 
   function handleProfileClick() {
-    if (signedIn && github?.login) {
-      openExternal(`https://github.com/${github.login}`).catch(() => {});
+    if (signedIn && ghUser) {
+      openExternal(`https://github.com/${ghUser.login}`).catch(() => {});
     } else {
       navigate("/settings");
     }
@@ -129,24 +130,24 @@ function Sidebar() {
         <button
           onClick={handleProfileClick}
           className="w-full flex items-center gap-2.5 px-3 py-3 text-left hover:bg-accent/50 transition-colors"
-          title={signedIn ? `Open @${github!.login} on GitHub` : "Connect GitHub in Settings"}
+          title={signedIn && ghUser ? `Open @${ghUser.login} on GitHub` : "Connect GitHub in Settings"}
         >
-          {signedIn ? (
+          {signedIn && ghUser ? (
             <>
-              {github?.avatar_url ? (
+              {ghUser.avatar_url ? (
                 <img
-                  src={github.avatar_url}
+                  src={ghUser.avatar_url}
                   alt=""
                   className="h-7 w-7 rounded-full ring-1 ring-border"
                 />
               ) : (
                 <div className="h-7 w-7 rounded-full bg-violet-500/20 flex items-center justify-center text-xs font-semibold text-violet-300">
-                  {github!.login!.charAt(0).toUpperCase()}
+                  {ghUser.login.charAt(0).toUpperCase()}
                 </div>
               )}
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-foreground truncate">
-                  @{github!.login}
+                  @{ghUser.login}
                 </p>
                 <p className="text-[10px] text-muted-foreground/70 leading-tight">
                   {health ? `v${health.version}` : "–"} · local

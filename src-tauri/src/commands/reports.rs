@@ -14,13 +14,13 @@ use crate::prompts::contexts::{CommitForPrompt, EventForPrompt, StandupContext};
 use crate::secrets;
 use super::AppState;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, specta::Type)]
 pub struct ReportFilter {
     pub r#type: Option<String>,
     pub limit: Option<i64>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, specta::Type)]
 pub struct RunTodayArgs {
     pub since_hours: i64,
     pub provider: String,        // "auto" | "openai" | "ollama"
@@ -28,6 +28,7 @@ pub struct RunTodayArgs {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn list_reports(state: State<'_, AppState>, filter: Option<ReportFilter>) -> AppResult<Vec<Report>> {
     let f = filter.unwrap_or(ReportFilter { r#type: None, limit: Some(50) });
     let limit = f.limit.unwrap_or(50);
@@ -43,6 +44,7 @@ pub async fn list_reports(state: State<'_, AppState>, filter: Option<ReportFilte
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn get_report(state: State<'_, AppState>, id: i64) -> AppResult<Report> {
     sqlx::query_as::<_, Report>("SELECT * FROM reports WHERE id = ?")
         .bind(id)
@@ -51,6 +53,7 @@ pub async fn get_report(state: State<'_, AppState>, id: i64) -> AppResult<Report
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn run_today(state: State<'_, AppState>, window: Window, args: RunTodayArgs) -> AppResult<Report> {
     window.emit("standup:progress", "loading config").ok();
     let cfg = config::load()?;

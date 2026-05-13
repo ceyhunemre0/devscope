@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ExternalLink } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -30,6 +30,7 @@ export default function SettingsPage() {
   const [clearError, setClearError] = useState<string | null>(null);
   const [savedVisible, setSavedVisible] = useState(false);
   const [clearedVisible, setClearedVisible] = useState(false);
+  const [openaiStored, setOpenaiStored] = useState(false);
 
   const [ghToken, setGhToken] = useState("");
   const [ghSaveError, setGhSaveError] = useState<string | null>(null);
@@ -39,7 +40,8 @@ export default function SettingsPage() {
 
   const [pendingClear, setPendingClear] = useState<PendingClear>(null);
 
-  const { data: settings } = useQuery({
+  // Pulled for sanity-checking the persisted settings (provider chain etc).
+  useQuery({
     queryKey: ["settings"],
     queryFn: api.getSettings,
   });
@@ -68,48 +70,41 @@ export default function SettingsPage() {
   }, [ghClearedVisible]);
 
   const saveMutation = useMutation({
-    mutationFn: () => api.saveSettings({ openai_api_key: apiKey }),
+    mutationFn: () => api.setSecret("OPENAI_API_KEY", apiKey),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["settings"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       setApiKey("");
       setSaveError(null);
       setSavedVisible(true);
+      setOpenaiStored(true);
     },
     onError: (err: unknown) => {
-      if (err instanceof ApiError) {
-        setSaveError(err.detail);
-      } else {
-        setSaveError("Unexpected error. Please try again.");
-      }
+      setSaveError(
+        err instanceof ApiError ? err.detail : "Unexpected error. Please try again.",
+      );
     },
   });
 
   const clearMutation = useMutation({
-    mutationFn: () => api.saveSettings({ clear_openai: true }),
+    mutationFn: () => api.deleteSecret("OPENAI_API_KEY"),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["settings"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       setClearError(null);
       setClearedVisible(true);
       setPendingClear(null);
+      setOpenaiStored(false);
     },
     onError: (err: unknown) => {
-      if (err instanceof ApiError) {
-        setClearError(err.detail);
-      } else {
-        setClearError("Unexpected error. Please try again.");
-      }
+      setClearError(
+        err instanceof ApiError ? err.detail : "Unexpected error. Please try again.",
+      );
       setPendingClear(null);
     },
   });
 
   const ghSaveMutation = useMutation({
-    mutationFn: () => api.githubSaveToken({ token: ghToken }),
+    mutationFn: () => api.setGithubToken(ghToken),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["github-status"] });
       queryClient.invalidateQueries({ queryKey: ["github-repos"] });
-      queryClient.invalidateQueries({ queryKey: ["github-contributions"] });
       setGhToken("");
       setGhSaveError(null);
       setGhSavedVisible(true);
@@ -123,11 +118,11 @@ export default function SettingsPage() {
   });
 
   const ghClearMutation = useMutation({
-    mutationFn: () => api.githubSaveToken({ clear: true }),
+    // Passing an empty string clears the stored token server-side.
+    mutationFn: () => api.setGithubToken(""),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["github-status"] });
       queryClient.invalidateQueries({ queryKey: ["github-repos"] });
-      queryClient.invalidateQueries({ queryKey: ["github-contributions"] });
       setGhClearError(null);
       setGhClearedVisible(true);
       setPendingClear(null);
@@ -143,23 +138,14 @@ export default function SettingsPage() {
   const isMutating = saveMutation.isPending || clearMutation.isPending;
 
   const statusBadge = () => {
-    if (settings?.openai_env_active) {
-      return (
-        <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/20">
-          ENV VAR ACTIVE
-        </Badge>
-      );
-    }
-    if (settings?.openai_stored) {
+    if (openaiStored) {
       return (
         <Badge className="bg-violet-500/15 text-violet-400 border-violet-500/20">
           STORED
         </Badge>
       );
     }
-    return (
-      <Badge variant="outline">NOT CONFIGURED</Badge>
-    );
+    return <Badge variant="outline">NOT CONFIGURED</Badge>;
   };
 
   return (
@@ -167,7 +153,7 @@ export default function SettingsPage() {
       <PageHeader
         crumb="Settings"
         title="API keys & configuration"
-        lead="Stored locally with file mode 600. Environment variables override stored values."
+        lead="Secrets are written to a file with mode 0600 in your config directory."
       />
 
       <Card>
@@ -178,7 +164,6 @@ export default function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Input row */}
           <div className="space-y-2">
             <Label htmlFor="openai-key">API key</Label>
             <div className="flex flex-wrap gap-2 items-center">
@@ -200,7 +185,7 @@ export default function SettingsPage() {
               >
                 {saveMutation.isPending ? "Saving…" : "Save"}
               </Button>
-              {settings?.openai_stored && (
+              {openaiStored && (
                 <Button
                   variant="destructive"
                   onClick={() => setPendingClear("openai")}
@@ -213,44 +198,14 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Status */}
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              {statusBadge()}
-              {settings?.openai_stored && settings.openai_masked && (
-                <span className="text-xs text-muted-foreground font-mono">
-                  {settings.openai_masked}
-                </span>
-              )}
-              {settings?.openai_env_active && (
-                <span className="text-xs text-muted-foreground">
-                  — overrides stored key
-                </span>
-              )}
-            </div>
-            {settings?.secrets_path && (
-              <p className="text-xs text-muted-foreground">
-                Storage path:{" "}
-                <code className="font-mono bg-muted/50 px-1 py-0.5 rounded">
-                  {settings.secrets_path}
-                </code>
-              </p>
-            )}
+          <div className="flex items-center gap-2 flex-wrap">
+            {statusBadge()}
           </div>
 
-          {/* Feedback */}
-          {savedVisible && (
-            <p className="text-sm text-emerald-500">Saved.</p>
-          )}
-          {clearedVisible && (
-            <p className="text-sm text-emerald-500">Cleared.</p>
-          )}
-          {saveError && (
-            <p className="text-sm text-destructive">{saveError}</p>
-          )}
-          {clearError && (
-            <p className="text-sm text-destructive">{clearError}</p>
-          )}
+          {savedVisible && <p className="text-sm text-emerald-500">Saved.</p>}
+          {clearedVisible && <p className="text-sm text-emerald-500">Cleared.</p>}
+          {saveError && <p className="text-sm text-destructive">{saveError}</p>}
+          {clearError && <p className="text-sm text-destructive">{clearError}</p>}
         </CardContent>
       </Card>
 
@@ -258,12 +213,9 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle>GitHub</CardTitle>
           <CardDescription>
-            Personal access token. Used to list your repos and fetch your contribution graph.
-            Create one at{" "}
-            <code className="font-mono bg-muted/50 px-1 py-0.5 rounded">
-              github.com/settings/tokens
-            </code>{" "}
-            with at least the <code>repo</code> and <code>read:user</code> scopes.
+            Personal access token used to list your repos and clone them.
+            Generate one with at least the <code>repo</code> and{" "}
+            <code>read:user</code> scopes.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -302,26 +254,20 @@ export default function SettingsPage() {
               variant="outline"
               size="sm"
               onClick={() => {
-                openExternal(GITHUB_TOKEN_URL).catch(() => {
-                  /* swallow — user can fall back to copy/paste */
-                });
+                openExternal(GITHUB_TOKEN_URL).catch(() => {});
               }}
               className="gap-1.5"
             >
               <ExternalLink size={14} strokeWidth={2} />
               Generate token on GitHub
             </Button>
-            <p className="text-xs text-muted-foreground">
-              Opens GitHub with the right scopes pre-selected (<code>repo</code>,{" "}
-              <code>read:user</code>). Generate, copy, and paste here.
-            </p>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
             {github?.configured ? (
-              github.login ? (
+              github.user ? (
                 <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/20">
-                  Signed in as {github.login}
+                  Signed in as {github.user.login}
                 </Badge>
               ) : (
                 <Badge className="bg-rose-500/15 text-rose-400 border-rose-500/20">
@@ -331,27 +277,11 @@ export default function SettingsPage() {
             ) : (
               <Badge variant="outline">NOT CONFIGURED</Badge>
             )}
-            {github?.configured && github.masked && (
-              <span className="text-xs text-muted-foreground font-mono">
-                {github.masked}
-              </span>
-            )}
           </div>
-          {github?.error && (
-            <p className="text-xs text-destructive">{github.error}</p>
-          )}
-          {ghSavedVisible && (
-            <p className="text-sm text-emerald-500">Saved.</p>
-          )}
-          {ghClearedVisible && (
-            <p className="text-sm text-emerald-500">Cleared.</p>
-          )}
-          {ghSaveError && (
-            <p className="text-sm text-destructive">{ghSaveError}</p>
-          )}
-          {ghClearError && (
-            <p className="text-sm text-destructive">{ghClearError}</p>
-          )}
+          {ghSavedVisible && <p className="text-sm text-emerald-500">Saved.</p>}
+          {ghClearedVisible && <p className="text-sm text-emerald-500">Cleared.</p>}
+          {ghSaveError && <p className="text-sm text-destructive">{ghSaveError}</p>}
+          {ghClearError && <p className="text-sm text-destructive">{ghClearError}</p>}
         </CardContent>
       </Card>
 

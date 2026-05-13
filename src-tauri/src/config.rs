@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::AppResult;
 use crate::paths;
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default, specta::Type)]
 pub struct Settings {
     #[serde(default)]
     pub llm: LlmSettings,
@@ -12,7 +12,7 @@ pub struct Settings {
     pub scanner: ScannerSettings,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, specta::Type)]
 pub struct LlmSettings {
     #[serde(default = "default_provider_chain")]
     pub provider_chain: Vec<String>,
@@ -31,7 +31,7 @@ impl Default for LlmSettings {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, specta::Type)]
 pub struct LlmModelDefaults {
     #[serde(default = "default_ollama_model")]
     pub ollama: String,
@@ -44,7 +44,7 @@ impl Default for LlmModelDefaults {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, specta::Type)]
 pub struct BudgetSettings {
     #[serde(default = "default_monthly_usd")]
     pub monthly_usd: f64,
@@ -57,7 +57,7 @@ impl Default for BudgetSettings {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, specta::Type)]
 pub struct ScannerSettings {
     #[serde(default = "default_auto_rescan_days")]
     pub auto_rescan_days: u32,

@@ -6,13 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import type { GitHubRepoOut } from "@/lib/api/types";
+import type { GithubRepo } from "@/lib/api/types";
 
 export function AddFromGitHubForm() {
   const queryClient = useQueryClient();
   const [parentDir, setParentDir] = useState("");
   const [filter, setFilter] = useState("");
-  const [selectedRepo, setSelectedRepo] = useState<GitHubRepoOut | null>(null);
+  const [selectedRepo, setSelectedRepo] = useState<GithubRepo | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successVisible, setSuccessVisible] = useState(false);
 
@@ -21,7 +21,7 @@ export function AddFromGitHubForm() {
     queryFn: api.githubStatus,
   });
 
-  const enabled = !!status?.configured && !!status.login;
+  const enabled = !!status?.configured && !!status.user;
 
   const {
     data: repos,
@@ -29,7 +29,7 @@ export function AddFromGitHubForm() {
     error,
   } = useQuery({
     queryKey: ["github-repos"],
-    queryFn: api.githubRepos,
+    queryFn: api.listGithubRepos,
     enabled,
     staleTime: 60_000,
     retry: false,
@@ -40,10 +40,12 @@ export function AddFromGitHubForm() {
     queryFn: api.listProjects,
   });
 
+  // Without a github_full_name mirror on Project, fall back to matching by
+  // the dest path containing the repo name.
   const trackedSet = useMemo(() => {
     const s = new Set<string>();
     for (const p of projects ?? []) {
-      if (p.github_full_name) s.add(p.github_full_name);
+      s.add(p.name);
     }
     return s;
   }, [projects]);
@@ -64,10 +66,12 @@ export function AddFromGitHubForm() {
   const cloneMutation = useMutation({
     mutationFn: () => {
       if (!selectedRepo) throw new Error("no repo selected");
-      return api.githubClone({
-        full_name: selectedRepo.full_name,
+      const trimmedParent = parentDir.trim().replace(/\/+$/, "");
+      const dest = `${trimmedParent}/${selectedRepo.name}`;
+      return api.cloneGithubRepo({
         clone_url: selectedRepo.clone_url,
-        parent_dir: parentDir.trim(),
+        dest_path: dest,
+        name: selectedRepo.name,
       });
     },
     onSuccess: () => {
@@ -102,7 +106,7 @@ export function AddFromGitHubForm() {
     <div className="space-y-4">
       <p className="text-xs text-muted-foreground">
         Signed in as{" "}
-        <span className="font-medium text-foreground">@{status.login}</span>.
+        <span className="font-medium text-foreground">@{status.user?.login}</span>.
         Pick a repository and a local parent directory; devscope clones it there and starts tracking.
       </p>
       <div className="space-y-4">
@@ -163,17 +167,6 @@ export function AddFromGitHubForm() {
                   )}
                   {repo.private && (
                     <Badge variant="outline" className="text-[10px]">private</Badge>
-                  )}
-                  {repo.fork && (
-                    <Badge variant="outline" className="text-[10px]">fork</Badge>
-                  )}
-                  {repo.archived && (
-                    <Badge variant="outline" className="text-[10px]">archived</Badge>
-                  )}
-                  {repo.language && (
-                    <span className="text-xs text-muted-foreground">
-                      {repo.language}
-                    </span>
                   )}
                   {repo.description && (
                     <span className="block w-full text-xs text-muted-foreground truncate mt-0.5">

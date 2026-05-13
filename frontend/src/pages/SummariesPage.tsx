@@ -22,7 +22,7 @@ export default function SummariesPage() {
 
   const { data: reports, isLoading, error } = useQuery({
     queryKey: ["reports"],
-    queryFn: () => api.listReports(100),
+    queryFn: () => api.listReports({ type: null, limit: 100 }),
   });
 
   const scopedReports = useMemo(() => {

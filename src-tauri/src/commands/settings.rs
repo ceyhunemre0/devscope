@@ -3,7 +3,7 @@ use serde::Deserialize;
 use crate::config::{self, Settings};
 use crate::error::AppResult;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, specta::Type)]
 pub struct SettingsPatch {
     pub monthly_usd: Option<f64>,
     pub hard_stop: Option<bool>,
@@ -15,9 +15,11 @@ pub struct SettingsPatch {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn get_settings() -> AppResult<Settings> { config::load() }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn save_settings(patch: SettingsPatch) -> AppResult<Settings> {
     let mut s = config::load()?;
     if let Some(v) = patch.monthly_usd       { s.llm.budget.monthly_usd = v; }

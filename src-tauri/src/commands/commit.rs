@@ -8,7 +8,7 @@ use crate::prompts;
 use crate::prompts::contexts::{CommitExample, CommitMessageContext};
 use super::AppState;
 
-#[derive(Serialize)]
+#[derive(Serialize, specta::Type)]
 pub struct CommitContext {
     pub status: String,
     pub diff_preview: String,
@@ -18,6 +18,7 @@ pub struct CommitContext {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn get_commit_context(state: State<'_, AppState>, project_id: i64) -> AppResult<CommitContext> {
     let row: (String,) = sqlx::query_as("SELECT path FROM projects WHERE id = ?")
         .bind(project_id)
@@ -36,19 +37,20 @@ pub async fn get_commit_context(state: State<'_, AppState>, project_id: i64) -> 
     })
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, specta::Type)]
 pub struct GenerateCommitArgs {
     pub project_id: i64,
     pub provider: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, specta::Type)]
 pub struct CommitResult {
     pub message: String,
     pub llm_call_id: i64,
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn generate_commit_message(
     state: State<'_, AppState>,
     window: Window,

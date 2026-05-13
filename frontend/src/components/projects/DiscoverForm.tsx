@@ -18,7 +18,7 @@ export function DiscoverForm() {
   const [dialogKey, setDialogKey] = useState(0);
 
   const scanMutation = useMutation({
-    mutationFn: () => api.discoverProjects({ root, depth }),
+    mutationFn: () => api.discoverRepos(root, depth),
     onSuccess: (data) => {
       setDiscoveredRepos(data);
       setDialogKey((k) => k + 1);

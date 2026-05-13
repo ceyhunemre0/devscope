@@ -13,7 +13,7 @@ export function AddProjectForm() {
   const [successVisible, setSuccessVisible] = useState(false);
 
   const mutation = useMutation({
-    mutationFn: () => api.addProject({ path, name }),
+    mutationFn: () => api.addProject(path, name),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       setPath("");

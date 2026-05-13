@@ -4,7 +4,6 @@ import { Link } from "react-router-dom";
 import { Play } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { ReportContent } from "@/components/ReportContent";
-import { GitHubHeatmap } from "@/components/GitHubHeatmap";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,17 +23,18 @@ export default function DashboardPage() {
 
   const [provider, setProvider] = useState<string>("auto");
   const [sinceHours, setSinceHours] = useState<number>(24);
-  const [project, setProject] = useState<string>("");
+  const [projectId, setProjectId] = useState<string>("");
   const [runError, setRunError] = useState<string | null>(null);
 
   const { data: dashboard } = useQuery({
     queryKey: ["dashboard"],
-    queryFn: api.dashboard,
+    queryFn: api.getDashboard,
   });
 
   const { data: latestReport } = useQuery({
     queryKey: ["latest-report"],
-    queryFn: () => api.listReports(1).then((rs) => rs[0] ?? null),
+    queryFn: () =>
+      api.listReports({ type: null, limit: 1 }).then((rs) => rs[0] ?? null),
   });
 
   const { data: projects, isLoading: projectsLoading } = useQuery({
@@ -46,8 +46,8 @@ export default function DashboardPage() {
     mutationFn: () =>
       api.runToday({
         since_hours: sinceHours,
-        provider: provider === "auto" ? undefined : provider,
-        project: project || undefined,
+        provider,
+        project_id: projectId ? Number(projectId) : null,
       }),
     onSuccess: () => {
       setRunError(null);
@@ -64,29 +64,13 @@ export default function DashboardPage() {
     },
   });
 
-  const llmBadge = () => {
-    if (dashboard?.openai_env_active) {
-      return (
-        <Badge className="bg-violet-500/15 text-violet-400 border-violet-500/20">
-          OpenAI (env)
-        </Badge>
-      );
-    }
-    if (dashboard?.openai_stored) {
-      return (
-        <Badge className="bg-violet-500/15 text-violet-400 border-violet-500/20">
-          OpenAI
-        </Badge>
-      );
-    }
-    return (
-      <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/20">
-        <Link to="/settings" className="hover:underline">
-          no key — visit Settings
-        </Link>
-      </Badge>
-    );
-  };
+  const llmBadge = () => (
+    <Badge className="bg-violet-500/15 text-violet-400 border-violet-500/20">
+      <Link to="/settings" className="hover:underline">
+        configure
+      </Link>
+    </Badge>
+  );
 
   return (
     <>
@@ -108,7 +92,7 @@ export default function DashboardPage() {
               Projects
             </p>
             <p className="text-3xl font-bold tracking-tight mt-1">
-              {dashboard?.project_count ?? "—"}
+              {dashboard?.active_projects ?? "—"}
             </p>
           </CardContent>
         </Card>
@@ -116,10 +100,10 @@ export default function DashboardPage() {
         <Card>
           <CardContent className="pt-4">
             <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">
-              Reports
+              Reports this week
             </p>
             <p className="text-3xl font-bold tracking-tight mt-1">
-              {dashboard?.report_count ?? "—"}
+              {dashboard?.reports_this_week ?? "—"}
             </p>
           </CardContent>
         </Card>
@@ -132,10 +116,6 @@ export default function DashboardPage() {
             <div className="mt-1">{llmBadge()}</div>
           </CardContent>
         </Card>
-      </div>
-
-      <div className="mb-6">
-        <GitHubHeatmap />
       </div>
 
       {/* Generate standup card */}
@@ -151,7 +131,7 @@ export default function DashboardPage() {
 
             {/* Inline form */}
             <div className="flex flex-wrap items-center gap-2 shrink-0">
-              <Select value={project} onValueChange={(val) => setProject(val ?? "")}>
+              <Select value={projectId} onValueChange={(val) => setProjectId(val ?? "")}>
                 <SelectTrigger className="w-[10rem]">
                   <SelectValue placeholder="All projects" />
                 </SelectTrigger>
@@ -163,7 +143,7 @@ export default function DashboardPage() {
                     </SelectItem>
                   ) : (
                     projects?.map((p) => (
-                      <SelectItem key={p.id} value={p.name}>
+                      <SelectItem key={p.id} value={String(p.id)}>
                         {p.name}
                       </SelectItem>
                     ))

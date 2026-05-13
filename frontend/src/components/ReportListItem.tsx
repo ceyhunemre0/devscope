@@ -1,10 +1,10 @@
 import { Badge } from "@/components/ui/badge";
 import { ReportContent } from "@/components/ReportContent";
 import { formatDate } from "@/lib/format";
-import type { ReportOut } from "@/lib/api/types";
+import type { Report } from "@/lib/api/types";
 
 interface ReportListItemProps {
-  report: ReportOut;
+  report: Report;
 }
 
 export function ReportListItem({ report }: ReportListItemProps) {

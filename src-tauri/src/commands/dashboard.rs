@@ -5,7 +5,7 @@ use crate::db::models::Project;
 use crate::error::AppResult;
 use super::AppState;
 
-#[derive(Serialize)]
+#[derive(Serialize, specta::Type)]
 pub struct DashboardData {
     pub active_projects: i64,
     pub reports_this_week: i64,
@@ -13,6 +13,7 @@ pub struct DashboardData {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn get_dashboard(state: State<'_, AppState>) -> AppResult<DashboardData> {
     let active_projects: (i64,) =
         sqlx::query_as("SELECT COUNT(*) FROM projects WHERE state = 'active'")

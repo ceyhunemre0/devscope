@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { ReportListItem } from "@/components/ReportListItem";
 import { ProjectCommitSuggester } from "@/components/projects/ProjectCommitSuggester";
 import { ProjectActions } from "@/components/projects/ProjectActions";
-import { openExternal } from "@/lib/external";
 import {
   Table,
   TableHeader,
@@ -29,32 +28,10 @@ function formatDate(iso: string | null): string {
   }
 }
 
-function WorkingTreeBadge({ projectId }: { projectId: number }) {
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["working-tree-status", projectId],
-    queryFn: () => api.workingTreeStatus(projectId),
-    staleTime: 5_000,
-    refetchOnWindowFocus: true,
-  });
-
-  if (isLoading || error || !data) return null;
-
-  if (!data.has_changes) return null;
-
-  return (
-    <Badge
-      className="bg-amber-500/15 text-amber-300 border-amber-500/20 text-[10px] uppercase tracking-wide"
-      title="Uncommitted changes — expand for details"
-    >
-      Uncommitted
-    </Badge>
-  );
-}
-
 function WorkingTreeDetails({ projectId }: { projectId: number }) {
   const { data, isLoading, error } = useQuery({
-    queryKey: ["working-tree-status", projectId],
-    queryFn: () => api.workingTreeStatus(projectId),
+    queryKey: ["commit-context", projectId],
+    queryFn: () => api.getCommitContext(projectId),
     staleTime: 5_000,
     refetchOnWindowFocus: true,
   });
@@ -66,7 +43,9 @@ function WorkingTreeDetails({ projectId }: { projectId: number }) {
   }
   if (error || !data) return null;
 
-  if (!data.has_changes) {
+  const hasChanges = data.status.trim().length > 0 || data.diff_preview.trim().length > 0;
+
+  if (!hasChanges) {
     return (
       <p className="text-xs text-muted-foreground">
         Working tree is clean — nothing to commit.
@@ -74,22 +53,15 @@ function WorkingTreeDetails({ projectId }: { projectId: number }) {
     );
   }
 
-  const trackedFiles = data.files_changed;
-  const totalFiles = trackedFiles + data.untracked_count;
+  const fileCount = data.status.split("\n").filter((l) => l.trim().length > 0).length;
 
   return (
     <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
       <span className="font-mono">
-        {totalFiles} {totalFiles === 1 ? "file" : "files"}
+        {fileCount} {fileCount === 1 ? "file" : "files"}
       </span>
-      {trackedFiles > 0 && (
-        <>
-          <span className="font-mono text-emerald-400">+{data.insertions}</span>
-          <span className="font-mono text-rose-400">−{data.deletions}</span>
-        </>
-      )}
-      {data.untracked_count > 0 && (
-        <span className="font-mono">{data.untracked_count} untracked</span>
+      {data.truncated && (
+        <span className="font-mono text-amber-400">diff truncated</span>
       )}
     </div>
   );
@@ -98,7 +70,8 @@ function WorkingTreeDetails({ projectId }: { projectId: number }) {
 function ProjectReports({ projectId }: { projectId: number }) {
   const { data: reports, isLoading, error } = useQuery({
     queryKey: ["reports", "project", projectId],
-    queryFn: () => api.listReports(100, projectId),
+    queryFn: () => api.listReports({ type: null, limit: 100 }),
+    select: (rows) => rows.filter((r) => r.project_id === projectId),
   });
 
   if (isLoading) {
@@ -283,21 +256,6 @@ export function ProjectsTable() {
                       <TableCell>
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium">{project.name}</span>
-                          {project.github_full_name && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openExternal(
-                                  `https://github.com/${project.github_full_name}`,
-                                ).catch(() => {});
-                              }}
-                              className="text-xs text-muted-foreground hover:text-foreground transition-colors font-mono"
-                              title="Open on GitHub"
-                            >
-                              ↗ {project.github_full_name}
-                            </button>
-                          )}
-                          <WorkingTreeBadge projectId={project.id} />
                         </div>
                       </TableCell>
                       <TableCell

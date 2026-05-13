@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
-import type { DiscoveredRepo, AddProjectIn } from "@/lib/api/types";
+import type { DiscoveredRepo, BulkAddItem } from "@/lib/api/types";
 import {
   Dialog,
   DialogContent,
@@ -35,7 +35,7 @@ export function DiscoverDialog({
 }: DiscoverDialogProps) {
   const queryClient = useQueryClient();
   const [rows, setRows] = useState<RepoRow[]>(() =>
-    repos.map((r) => ({ path: r.path, name: r.suggested_name, checked: true }))
+    repos.map((r) => ({ path: r.path, name: r.name, checked: true }))
   );
 
   // Re-sync rows when repos change (new scan result)
@@ -43,7 +43,7 @@ export function DiscoverDialog({
   const isEmpty = repos.length === 0;
 
   const bulkMutation = useMutation({
-    mutationFn: (items: AddProjectIn[]) => api.bulkAddProjects(items),
+    mutationFn: (items: BulkAddItem[]) => api.bulkAddProjects(items),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       onOpenChange(false);

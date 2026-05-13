@@ -6,18 +6,19 @@ use crate::error::AppResult;
 use crate::git::stats::{daily_commit_counts, DailyCount};
 use super::AppState;
 
-#[derive(Serialize)]
+#[derive(Serialize, specta::Type)]
 pub struct StatsData {
     pub days: Vec<DayBucket>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, specta::Type)]
 pub struct DayBucket {
     pub date: String,
     pub count: u32,
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn get_stats(state: State<'_, AppState>, range_days: u32) -> AppResult<StatsData> {
     let since = Utc::now() - Duration::days(range_days as i64);
     let until = Utc::now();
