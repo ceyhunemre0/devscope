@@ -20,7 +20,7 @@ pub fn load_all() -> AppResult<BTreeMap<String, String>> {
         return Ok(BTreeMap::new());
     }
     let raw = std::fs::read_to_string(&p)?;
-    Ok(serde_json::from_str(&raw).unwrap_or_default())
+    Ok(serde_json::from_str(&raw)?)
 }
 
 pub fn get(key: &str) -> AppResult<Option<String>> {
@@ -49,7 +49,10 @@ fn write_all(map: &BTreeMap<String, String>) -> AppResult<()> {
     let body = serde_json::to_string_pretty(map)?;
     let tmp = p.with_extension("json.tmp");
     std::fs::write(&tmp, body.as_bytes())?;
-    std::fs::rename(&tmp, &p)?;
-    set_mode_600(&p)?;
+    set_mode_600(&tmp)?;
+    if let Err(e) = std::fs::rename(&tmp, &p) {
+        let _ = std::fs::remove_file(&tmp);
+        return Err(e.into());
+    }
     Ok(())
 }
