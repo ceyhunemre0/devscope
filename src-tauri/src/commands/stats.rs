@@ -111,6 +111,6 @@ pub async fn list_recent_commits(
             });
         }
     }
-    out.sort_by(|a, b| b.occurred_at.cmp(&a.occurred_at));
+    out.sort_by_key(|b| std::cmp::Reverse(b.occurred_at));
     Ok(out)
 }
