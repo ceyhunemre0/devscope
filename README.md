@@ -19,7 +19,7 @@
 Ne yapar?
 - Kayıtlı projelerinizin son N saatlik commit aktivitesinden **standup tarzı özetler** üretir.
 - Çalışmamış dosyalardan akıllı **commit mesajları** önerir.
-- Günlük katkı ısı haritası, proje istatistikleri ve geçmiş raporlar için bir **web panosu** sunar.
+- Günlük katkı ısı haritası, proje istatistikleri ve geçmiş raporları uygulama içinde gösterir.
 - Tek bir **masaüstü uygulaması** (Tauri) olarak çalışır — sunucu / kurulum gerekmez.
 
 ---
@@ -46,7 +46,7 @@ Açtığınızda devscope açılır. Yapılması gerekenler:
 
 > Notlar — kod imzalı değiliz (Apple Developer / Authenticode yok):
 >
-> **macOS:** İlk açılışta splash ekranında *"Backend couldn't start: backend not reachable…"* görürseniz, sebep macOS Gatekeeper'ın DMG'den kopyalanan içindeki imzasız Python sidecar binary'lerine `com.apple.quarantine` xattr'ı eklemesi. Tek seferlik çözüm — Terminal'de:
+> **macOS:** İlk açılışta *"devscope is damaged and can't be opened"* uyarısı görürseniz, sebep macOS Gatekeeper'ın DMG'den kopyalanan `.app` bundle'ına `com.apple.quarantine` xattr'ı eklemesi. (Eski sürümlerdeki *"Backend couldn't start"* sidecar hatası artık görünmüyor — Python sidecar kaldırıldı.) Tek seferlik çözüm — Terminal'de:
 > ```bash
 > xattr -dr com.apple.quarantine /Applications/devscope.app
 > ```
@@ -65,32 +65,37 @@ Açtığınızda devscope açılır. Yapılması gerekenler:
 3. [Verilerin nerede tutulduğu](#verilerin-nerede-tutulduğu)
 4. [Sorun giderme](#sorun-giderme)
 5. [Kaynaktan kurulum (geliştiriciler)](#kaynaktan-kurulum-geliştiriciler)
-6. [CLI kullanımı](#cli-kullanımı)
-7. [Yapılandırma](#yapılandırma)
-8. [Sürüm yayımlama (maintainer)](#sürüm-yayımlama-maintainer)
-9. [Lisans](#lisans)
+6. [Yapılandırma](#yapılandırma)
+7. [Sürüm yayımlama (maintainer)](#sürüm-yayımlama-maintainer)
+8. [Lisans](#lisans)
 
 ## Çalışma şekli
 
 ```
    ┌─────────────────┐     ┌──────────────────┐     ┌────────────────┐
-   │ Yerel git repo  │ ──▶ │  devscope        │ ──▶ │ LLM sağlayıcı  │
-   │ (pygit2 ile     │     │  (Tauri uygulama │     │ OpenAI / Ollama│
-   │ okunur)         │     │   + FastAPI)     │     └────────────────┘
+   │ Yerel git repo  │ ──▶ │  devscope (Tauri │ ──▶ │ LLM sağlayıcı  │
+   │ (git2 ile       │     │  Rust + React)   │     │ OpenAI / Ollama│
+   │ okunur)         │     │  SQLite          │     └────────────────┘
    └─────────────────┘     └──────────────────┘             │
                                    │                        ▼
                                    ▼               ┌────────────────┐
                           ┌────────────────┐       │ Standup özeti  │
                           │ ~/.devscope/   │       │ commit mesajı  │
-                          │   devscope.db  │       └────────────────┘
+                          │ devscope-v2.db │       └────────────────┘
                           └────────────────┘
 ```
 
-Masaüstü uygulaması açıldığında küçük bir Python backend'i (FastAPI) yerel `127.0.0.1` üzerinde başlatır. Veriler kullanıcının kişisel veri klasöründeki SQLite veritabanında tutulur.
+| Bileşen   | Teknoloji                          |
+|-----------|------------------------------------|
+| Backend   | Rust (sqlx + git2 + reqwest + tera) |
+| Frontend  | React 19 + Vite + Tailwind         |
+| Shell     | Tauri 2                            |
+
+Tüm backend mantığı Tauri shell'inin içinde Rust olarak çalışır; frontend Tauri `invoke()` üzerinden komutları çağırır. Ayrı bir sunucu / sidecar süreci yoktur. Veriler kullanıcının kişisel veri klasöründeki SQLite veritabanında tutulur.
 
 ## LLM sağlayıcıları
 
-`--provider auto` (varsayılan) önce OpenAI anahtarına bakar, bulamazsa Ollama'ya düşer.
+Yapılandırılmış sağlayıcı zincirine göre (`provider_chain`) sırayla denenir; örneğin önce OpenAI varsa onu, yoksa Ollama'yı kullanır.
 
 **Ollama (ücretsiz, internet gerekmez):**
 
@@ -103,7 +108,7 @@ ollama pull llama3.1:8b
 
 **OpenAI (daha kaliteli, ücretli):**
 
-Settings sekmesinde anahtarınızı (`sk-...`) yapıştırmanız yeterlidir. CLI tercih ediyorsanız `export OPENAI_API_KEY=sk-...`.
+Settings sekmesinde anahtarınızı (`sk-...`) yapıştırmanız yeterlidir; anahtar `~/.devscope/secrets.json` içinde (chmod 600) tutulur.
 
 Bütçe koruyucusu (`llm.budget.hard_stop = true` iken) aylık limit aşıldığında çağrıları reddeder; tahmini maliyet her çağrıdan sonra veritabanına yazılır.
 
@@ -113,12 +118,14 @@ Tüm devscope durumu tek bir klasördedir:
 
 ```
 ~/.devscope/
-├── config.toml     # TOML yapılandırması (yoksa varsayılan kullanılır)
-├── devscope.db     # SQLite (projeler, eventler, raporlar, LLM çağrı kayıtları)
-└── secrets.json    # API anahtarları (chmod 600)
+├── config.toml         # TOML yapılandırması
+├── devscope-v2.db      # SQLite (v0.1.0+; eski devscope.db dokunulmaz)
+└── secrets.json        # API anahtarları (chmod 600)
 ```
 
 Bu klasörü silmek devscope'un hatırladığı her şeyi silmek demektir. **Kayıtlı git depoları içindeki kodunuza dokunulmaz.**
+
+> v0.0.x'ten geliyorsanız: eski `~/.devscope/devscope.db` dokunulmadan duruyor; istemediğinizde silebilirsiniz. v0.0.3 DMG'sini tekrar yükleyerek o sürüme dönebilirsiniz.
 
 Klasörü taşımak isterseniz `DEVSCOPE_HOME` ortam değişkenini ayarlayın.
 
@@ -126,11 +133,11 @@ Klasörü taşımak isterseniz `DEVSCOPE_HOME` ortam değişkenini ayarlayın.
 
 | Sorun                                                          | Çözüm                                                                          |
 |----------------------------------------------------------------|--------------------------------------------------------------------------------|
-| macOS: "Backend couldn't start: backend not reachable…"        | `xattr -dr com.apple.quarantine /Applications/devscope.app` (imzasız sidecar quarantine'ı). |
+| macOS: "devscope is damaged and can't be opened"               | `xattr -dr com.apple.quarantine /Applications/devscope.app` (Gatekeeper quarantine xattr'ı). |
 | macOS: "devscope bozuk / açılamaz"                             | Finder'da sağ tık → Open → Open. Apple imzalı değil; manuel onay yeterli.       |
 | Windows SmartScreen uyarısı                                    | "Daha fazla bilgi" → "Yine de çalıştır".                                       |
 | Linux'ta AppImage çalışmıyor                                   | `chmod +x devscope*.AppImage && ./devscope*.AppImage`.                          |
-| "OpenAI key required"                                          | Settings sekmesinden `OPENAI_API_KEY` girin ya da ortamda dışa aktarın.        |
+| "OpenAI key required"                                          | Settings sekmesinden API anahtarını girin.                                      |
 | Ollama: `connection refused`                                   | `ollama serve` çalışıyor mu kontrol edin (`curl localhost:11434`).              |
 | "is not a git repository"                                      | Eklediğiniz yol bir `.git` dizini içermeli. Bare repo'lar şu an desteklenmez.   |
 | Bütçe nedeniyle özet üretilmiyor                               | `~/.devscope/config.toml` → `[llm.budget]` altında `monthly_usd`'yi artırın.    |
@@ -143,8 +150,6 @@ Yalnızca: yeni özellik eklemek isteyenler, henüz binary bulunmayan platformla
 
 ### Gereksinimler
 
-- Python ≥ 3.11
-- [`uv`](https://docs.astral.sh/uv/) (önerilen) veya `pipx` / `pip`
 - Node.js ≥ 20 + `pnpm`
 - Rust ≥ 1.77 (`rustup`)
 - Platforma özgü Tauri ön koşulları → [tauri.app/start/prerequisites](https://tauri.app/start/prerequisites/)
@@ -152,59 +157,21 @@ Yalnızca: yeni özellik eklemek isteyenler, henüz binary bulunmayan platformla
 ### Geliştirme modunda çalıştırma
 
 ```bash
-git clone https://github.com/<sizin-hesap>/devscope.git
+git clone https://github.com/ceyhunemre0/devscope.git
 cd devscope
-
-# 1) Python ortamı
-uv sync --extra dev
-source .venv/bin/activate
-
-# 2) Frontend bağımlılıkları
 cd frontend && pnpm install && cd ..
-
-# 3) Sidecar backend'i bir kez derle (PyInstaller bundle)
-./scripts/build_backend.sh
-
-# 4) Tauri uygulamasını dev modunda aç
-cd src-tauri
-cargo tauri dev
+cd src-tauri && cargo tauri dev
 ```
 
 ### Yerel installer üretmek
 
 ```bash
-# Backend bundle'ı taze tutun
-./scripts/build_backend.sh
-
-# Tauri release derlemesi — DMG / EXE / DEB / AppImage çıktısı
-cd src-tauri
-cargo tauri build
+cd frontend && pnpm gen-types && pnpm build && cd ..
+cd src-tauri && cargo tauri build
 # → src-tauri/target/release/bundle/ altında platforma uygun dosya
 ```
 
 Üretilen dosyayı arkadaşınıza vermek, "indir-çalıştır" deneyiminin yerel karşılığıdır.
-
-## CLI kullanımı
-
-Tauri'siz, sadece terminal:
-
-```bash
-pipx install -e .       # ya da: uv tool install -e .
-
-devscope init                              # ~/.devscope ve veritabanı
-devscope projects add ~/code/my-app -n my  # bir repo'yu kaydet
-devscope projects list
-devscope today                              # son 24 saatin standup'ı
-devscope today --since-hours 48 --project my
-devscope serve                              # http://127.0.0.1:8765
-```
-
-Hangi sağlayıcı kullanılacağını seçin:
-
-```bash
-devscope today --provider openai      # OPENAI_API_KEY gerekli
-devscope today --provider ollama      # yerel ollama daemon
-```
 
 ## Yapılandırma
 
@@ -225,11 +192,6 @@ hard_stop   = true
 [scanner]
 auto_rescan_days   = 30
 max_discover_depth = 4
-
-[web]
-host = "127.0.0.1"
-port = 8765
-shared_secret = ""    # boş = yerel-yalnız
 ```
 
 Çevre değişkenleri:
@@ -237,7 +199,6 @@ shared_secret = ""    # boş = yerel-yalnız
 | Değişken            | Anlamı                                                  |
 |---------------------|---------------------------------------------------------|
 | `DEVSCOPE_HOME`     | Veri klasörünün yerini değiştirir (varsayılan `~/.devscope`) |
-| `OPENAI_API_KEY`    | OpenAI sağlayıcısını etkinleştirir                       |
 
 ## Sürüm yayımlama (maintainer)
 
@@ -251,7 +212,7 @@ git push origin v0.1.0
 Bu tag'i ittiğinizde GitHub Actions:
 
 1. macOS arm64, macOS x64, Windows x64 ve Linux x64 runner'larında paralel build başlatır.
-2. Her platformda frontend'i derler, Python backend'ini PyInstaller ile bundle'lar, Tauri'yi paketler.
+2. Her platformda frontend'i derler ve Tauri (Rust) uygulamasını paketler.
 3. Tüm artefaktları **taslak (draft) bir GitHub Release**'e ekler.
 
 Release sayfasında dosyaları gözden geçirin, açıklama yazın ve **Publish** butonuna basın. Bu noktada Releases sayfası kullanıcı için hazır.
@@ -266,19 +227,22 @@ git tag -d v0.1.0
 ## Repo yapısı
 
 ```
-src/devscope/        Python paketi (CLI + FastAPI uygulaması)
-  cli/               Typer komutları
-  collectors/        pygit2 ile yerel git okuma
-  generators/        Standup ve commit-mesaj prompt'ları
-  llm/               OpenAI / Ollama sağlayıcıları, bütçe ve yönlendirme
-  storage/           SQLAlchemy modelleri ve repository'ler
-  web/               FastAPI uygulaması (/api/*)
-frontend/            React + Vite SPA
-src-tauri/           Tauri 2 kabuğu (Rust)
-migrations/          Alembic şema göçleri
-scripts/             build_backend.sh — PyInstaller sidecar üretici
-tests/               pytest paketleri
-.github/workflows/   ci.yml (test) + release.yml (otomatik build)
+src-tauri/
+├── src/
+│   ├── lib.rs              Tauri Builder + invoke handler registry
+│   ├── commands/           frontend-facing tauri commands (22)
+│   ├── db/                 sqlx SQLite (migrations under db/migrations/)
+│   ├── git/                git2-based local repo ops + remote parsing
+│   ├── llm/                ollama + openai providers, budget guard, router
+│   ├── prompts/            Tera template engine + render functions
+│   ├── github_api/         reqwest GitHub REST + clone
+│   ├── bin/export_types.rs build-time TS type generation
+│   ├── config.rs, secrets.rs, error.rs, paths.rs
+│   └── templates/          embedded .tera files
+├── capabilities/           Tauri permission config
+└── tauri.conf.json
+frontend/                   React 19 + Vite SPA
+.github/workflows/          ci.yml (test) + release.yml (cross-platform installers)
 ```
 
 ## Lisans
