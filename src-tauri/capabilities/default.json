@@ -6,16 +6,6 @@
   "permissions": [
     "core:default",
     {
-      "identifier": "shell:allow-execute",
-      "allow": [
-        {
-          "name": "devscope-backend",
-          "cmd": "$RESOURCE/binaries/devscope-backend-bundle/devscope-backend",
-          "args": true
-        }
-      ]
-    },
-    {
       "identifier": "shell:allow-open",
       "allow": [{ "url": "^https?://" }]
     }
