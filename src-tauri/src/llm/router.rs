@@ -35,7 +35,7 @@ impl LlmRouter {
                     return Ok((resp, row.0));
                 }
                 Err(e) => {
-                    sqlx::query(
+                    if let Err(db_err) = sqlx::query(
                         "INSERT INTO llm_calls
                          (provider, model, purpose, succeeded, error, called_at)
                          VALUES (?,?,?,0,?,?)"
@@ -46,7 +46,13 @@ impl LlmRouter {
                     .bind(e.to_string())
                     .bind(Utc::now())
                     .execute(pool)
-                    .await?;
+                    .await
+                    {
+                        log::warn!(
+                            "failed to record llm_calls failure row for provider {}: {db_err}",
+                            provider.name()
+                        );
+                    }
                     last_err = Some(e);
                 }
             }

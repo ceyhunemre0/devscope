@@ -21,11 +21,11 @@ impl OpenAIProvider {
         }
     }
 
-    fn price_per_million(model: &str) -> (f64, f64) {
+    fn price_per_million(model: &str) -> Option<(f64, f64)> {
         match model {
-            "gpt-4o-mini" => (0.150, 0.600),
-            "gpt-4o"      => (2.500, 10.000),
-            _             => (0.0, 0.0),
+            "gpt-4o-mini" => Some((0.150, 0.600)),
+            "gpt-4o"      => Some((2.500, 10.000)),
+            _             => None,
         }
     }
 }
@@ -62,14 +62,21 @@ impl LlmProvider for OpenAIProvider {
             .to_string();
         let pt = v.pointer("/usage/prompt_tokens").and_then(|x| x.as_i64());
         let ot = v.pointer("/usage/completion_tokens").and_then(|x| x.as_i64());
-        let (in_price, out_price) = Self::price_per_million(&req.model);
-        let cost = pt.unwrap_or(0) as f64 / 1_000_000.0 * in_price
-                 + ot.unwrap_or(0) as f64 / 1_000_000.0 * out_price;
+        let cost = Self::price_per_million(&req.model).map(|(in_p, out_p)| {
+            pt.unwrap_or(0) as f64 / 1_000_000.0 * in_p
+                + ot.unwrap_or(0) as f64 / 1_000_000.0 * out_p
+        });
+        if cost.is_none() {
+            log::warn!(
+                "no pricing entry for openai model {} — cost will not contribute to budget tracking",
+                req.model
+            );
+        }
         Ok(LlmResponse {
             content,
             prompt_tokens: pt,
             output_tokens: ot,
-            cost_usd: Some(cost),
+            cost_usd: cost,
             duration_ms: started.elapsed().as_millis() as i64,
             model: req.model.clone(),
             provider: "openai".into(),
