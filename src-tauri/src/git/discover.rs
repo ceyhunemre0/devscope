@@ -9,7 +9,7 @@ pub struct DiscoveredRepo {
 }
 
 pub fn walk_for_repos(root: &Path, max_depth: usize) -> Vec<DiscoveredRepo> {
-    WalkDir::new(root)
+    let mut out: Vec<DiscoveredRepo> = WalkDir::new(root)
         .max_depth(max_depth)
         .into_iter()
         .filter_map(|e| e.ok())
@@ -22,5 +22,7 @@ pub fn walk_for_repos(root: &Path, max_depth: usize) -> Vec<DiscoveredRepo> {
                 name,
             })
         })
-        .collect()
+        .collect();
+    out.sort_by(|a, b| a.path.cmp(&b.path));
+    out
 }

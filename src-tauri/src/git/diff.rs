@@ -50,17 +50,25 @@ pub fn summarize_working_tree(repo_path: &Path) -> AppResult<WorkingTreeSummary>
     };
 
     let mut buf = String::new();
-    diff.print(DiffFormat::Patch, |_, _, line| {
+    let print_res = diff.print(DiffFormat::Patch, |_, _, line| {
         let prefix = match line.origin() { '+' | '-' | ' ' => Some(line.origin()), _ => None };
         if let Some(c) = prefix {
             buf.push(c);
         }
         buf.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
         buf.len() < DIFF_LIMIT_BYTES
-    })?;
-    let truncated = buf.len() >= DIFF_LIMIT_BYTES;
+    });
+    // Returning `false` from the callback causes git2 to surface a User-aborted
+    // error; treat that case as a signal that we hit the byte limit.
+    let truncated = match print_res {
+        Ok(()) => buf.len() >= DIFF_LIMIT_BYTES,
+        Err(e) if buf.len() >= DIFF_LIMIT_BYTES => { let _ = e; true }
+        Err(e) => return Err(e.into()),
+    };
     if truncated {
-        buf.truncate(DIFF_LIMIT_BYTES);
+        let mut cut = DIFF_LIMIT_BYTES;
+        while !buf.is_char_boundary(cut) { cut -= 1; }
+        buf.truncate(cut);
     }
 
     let last_commit_date = repo.head().ok()

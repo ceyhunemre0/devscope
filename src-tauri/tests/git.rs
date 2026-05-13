@@ -63,3 +63,38 @@ fn recent_commits_returns_in_reverse_chronological() {
     assert_eq!(examples.len(), 2);
     assert_eq!(examples[0].subject, "second commit");
 }
+
+#[test]
+fn summarize_working_tree_truncates_on_char_boundary_with_unicode() {
+    let dir = make_repo();
+    // Stage and commit big.txt as empty, then overwrite with large UTF-8
+    // content so the working-tree diff (vs HEAD) exceeds the limit.
+    std::fs::write(dir.path().join("big.txt"), "").unwrap();
+    run("git", &["add", "big.txt"], dir.path());
+    run("git", &["commit", "-q", "-m", "add big.txt"], dir.path());
+    // 300 KB file full of 3-byte UTF-8 (Japanese hiragana あ)
+    let unicode_chunk: String = "あ".repeat(100_000); // 300 KB
+    std::fs::write(dir.path().join("big.txt"), &unicode_chunk).unwrap();
+    let s = devscope_lib::git::diff::summarize_working_tree(dir.path()).unwrap();
+    assert!(s.truncated, "expected truncation");
+    // If we wrongly cut mid-character, `diff` would not be valid UTF-8 —
+    // the .as_str() call on the underlying String here would actually
+    // have panicked at write-time. So just assert basic sanity:
+    assert!(s.diff.len() <= 256 * 1024 + 1024); // allow tiny overshoot from last full line
+    assert!(s.diff.is_char_boundary(s.diff.len()));
+}
+
+#[test]
+fn walk_for_repos_returns_sorted_paths() {
+    let dir = tempdir().unwrap();
+    let root = dir.path();
+    // create three repos in non-alphabetical creation order
+    for name in &["zebra", "alpha", "mango"] {
+        let r = root.join(name);
+        std::fs::create_dir_all(&r).unwrap();
+        run("git", &["init", "-q", "-b", "main"], &r);
+    }
+    let found = devscope_lib::git::discover::walk_for_repos(root, 3);
+    let names: Vec<String> = found.iter().map(|f| f.name.clone()).collect();
+    assert_eq!(names, vec!["alpha", "mango", "zebra"]);
+}

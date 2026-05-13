@@ -17,7 +17,7 @@ pub fn daily_commit_counts(
 ) -> AppResult<Vec<DailyCount>> {
     let repo = Repository::open(repo_path)?;
     let mut walk = repo.revwalk()?;
-    walk.set_sorting(Sort::TIME)?;
+    walk.set_sorting(Sort::TIME | Sort::TOPOLOGICAL)?;
     walk.push_head()?;
 
     let mut bucket: BTreeMap<chrono::NaiveDate, u32> = BTreeMap::new();
