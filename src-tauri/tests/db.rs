@@ -16,9 +16,10 @@ async fn migration_creates_all_tables() {
     .unwrap();
 
     let names: Vec<String> = tables.into_iter().map(|t| t.0).collect();
-    assert_eq!(names, vec![
-        "events", "llm_calls", "projects", "reports", "settings"
-    ]);
+    assert_eq!(
+        names,
+        vec!["events", "llm_calls", "projects", "reports", "settings"]
+    );
 }
 
 #[tokio::test]

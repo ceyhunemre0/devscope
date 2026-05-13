@@ -3,16 +3,18 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use tauri::{Emitter, State, Window};
 
+use super::AppState;
 use crate::config;
 use crate::db::models::{Project, Report};
 use crate::error::{AppError, AppResult};
 use crate::git::collector;
-use crate::llm::{LlmProvider, LlmRequest, budget::BudgetGuard, ollama::OllamaProvider,
-                 openai::OpenAIProvider, router::LlmRouter};
+use crate::llm::{
+    budget::BudgetGuard, ollama::OllamaProvider, openai::OpenAIProvider, router::LlmRouter,
+    LlmProvider, LlmRequest,
+};
 use crate::prompts;
 use crate::prompts::contexts::{CommitForPrompt, EventForPrompt, StandupContext};
 use crate::secrets;
-use super::AppState;
 
 #[derive(Deserialize, specta::Type)]
 pub struct ReportFilter {
@@ -29,16 +31,31 @@ pub struct RunTodayArgs {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn list_reports(state: State<'_, AppState>, filter: Option<ReportFilter>) -> AppResult<Vec<Report>> {
-    let f = filter.unwrap_or(ReportFilter { r#type: None, limit: Some(50) });
+pub async fn list_reports(
+    state: State<'_, AppState>,
+    filter: Option<ReportFilter>,
+) -> AppResult<Vec<Report>> {
+    let f = filter.unwrap_or(ReportFilter {
+        r#type: None,
+        limit: Some(50),
+    });
     let limit = f.limit.unwrap_or(50);
     let rows = match f.r#type {
-        Some(t) => sqlx::query_as::<_, Report>(
-            "SELECT * FROM reports WHERE type = ? ORDER BY generated_at DESC LIMIT ?"
-        ).bind(t).bind(limit).fetch_all(&state.pool).await?,
-        None => sqlx::query_as::<_, Report>(
-            "SELECT * FROM reports ORDER BY generated_at DESC LIMIT ?"
-        ).bind(limit).fetch_all(&state.pool).await?,
+        Some(t) => {
+            sqlx::query_as::<_, Report>(
+                "SELECT * FROM reports WHERE type = ? ORDER BY generated_at DESC LIMIT ?",
+            )
+            .bind(t)
+            .bind(limit)
+            .fetch_all(&state.pool)
+            .await?
+        }
+        None => {
+            sqlx::query_as::<_, Report>("SELECT * FROM reports ORDER BY generated_at DESC LIMIT ?")
+                .bind(limit)
+                .fetch_all(&state.pool)
+                .await?
+        }
     };
     Ok(rows)
 }
@@ -48,13 +65,21 @@ pub async fn list_reports(state: State<'_, AppState>, filter: Option<ReportFilte
 pub async fn get_report(state: State<'_, AppState>, id: i64) -> AppResult<Report> {
     sqlx::query_as::<_, Report>("SELECT * FROM reports WHERE id = ?")
         .bind(id)
-        .fetch_optional(&state.pool).await?
-        .ok_or(AppError::NotFound { resource: "Report".into(), id })
+        .fetch_optional(&state.pool)
+        .await?
+        .ok_or(AppError::NotFound {
+            resource: "Report".into(),
+            id,
+        })
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn run_today(state: State<'_, AppState>, window: Window, args: RunTodayArgs) -> AppResult<Report> {
+pub async fn run_today(
+    state: State<'_, AppState>,
+    window: Window,
+    args: RunTodayArgs,
+) -> AppResult<Report> {
     window.emit("standup:progress", "loading config").ok();
     let cfg = config::load()?;
 
@@ -64,33 +89,47 @@ pub async fn run_today(state: State<'_, AppState>, window: Window, args: RunToda
     let projects: Vec<Project> = match args.project_id {
         Some(id) => {
             let p = sqlx::query_as::<_, Project>("SELECT * FROM projects WHERE id = ?")
-                .bind(id).fetch_optional(&state.pool).await?
-                .ok_or(AppError::NotFound { resource: "Project".into(), id })?;
+                .bind(id)
+                .fetch_optional(&state.pool)
+                .await?
+                .ok_or(AppError::NotFound {
+                    resource: "Project".into(),
+                    id,
+                })?;
             vec![p]
         }
-        None => sqlx::query_as::<_, Project>(
-            "SELECT * FROM projects WHERE state = 'active'"
-        ).fetch_all(&state.pool).await?,
+        None => {
+            sqlx::query_as::<_, Project>("SELECT * FROM projects WHERE state = 'active'")
+                .fetch_all(&state.pool)
+                .await?
+        }
     };
 
     window.emit("standup:progress", "collecting commits").ok();
     let mut events_by_project: HashMap<String, Vec<EventForPrompt>> = HashMap::new();
     for p in &projects {
         let path = std::path::Path::new(&p.path);
-        if !path.join(".git").exists() { continue; }
+        if !path.join(".git").exists() {
+            continue;
+        }
         let collected = collector::collect(path, since)?;
-        if collected.is_empty() { continue; }
-        let mapped: Vec<EventForPrompt> = collected.into_iter().map(|c| EventForPrompt {
-            occurred_at: c.occurred_at,
-            payload: CommitForPrompt {
-                sha: c.payload.sha,
-                message_summary: c.payload.message_summary,
-                files_changed: c.payload.files_changed,
-                additions: c.payload.additions,
-                deletions: c.payload.deletions,
-                author_email: c.payload.author_email,
-            },
-        }).collect();
+        if collected.is_empty() {
+            continue;
+        }
+        let mapped: Vec<EventForPrompt> = collected
+            .into_iter()
+            .map(|c| EventForPrompt {
+                occurred_at: c.occurred_at,
+                payload: CommitForPrompt {
+                    sha: c.payload.sha,
+                    message_summary: c.payload.message_summary,
+                    files_changed: c.payload.files_changed,
+                    additions: c.payload.additions,
+                    deletions: c.payload.deletions,
+                    author_email: c.payload.author_email,
+                },
+            })
+            .collect();
         events_by_project.insert(p.name.clone(), mapped);
     }
 
@@ -110,7 +149,8 @@ pub async fn run_today(state: State<'_, AppState>, window: Window, args: RunToda
     let prompt = prompts::render_standup(&ctx)?;
 
     window.emit("standup:progress", "calling llm").ok();
-    let (resp, llm_call_id) = invoke_llm(&state.pool, &cfg, &args.provider, "standup", &prompt).await?;
+    let (resp, llm_call_id) =
+        invoke_llm(&state.pool, &cfg, &args.provider, "standup", &prompt).await?;
 
     window.emit("standup:progress", "saving report").ok();
     let now = Utc::now();
@@ -146,14 +186,16 @@ pub async fn invoke_llm(
             vec![Box::new(OpenAIProvider::new(key))]
         }
         "ollama" => vec![Box::new(OllamaProvider::default())],
-        other => return Err(AppError::Validation {
-            field: "provider".into(),
-            message: format!("unknown provider: {other}"),
-        }),
+        other => {
+            return Err(AppError::Validation {
+                field: "provider".into(),
+                message: format!("unknown provider: {other}"),
+            })
+        }
     };
     let model = match provider {
         "openai" => cfg.llm.default_model.openai.clone(),
-        _        => cfg.llm.default_model.ollama.clone(),
+        _ => cfg.llm.default_model.ollama.clone(),
     };
     let router = LlmRouter {
         chain,
@@ -162,9 +204,14 @@ pub async fn invoke_llm(
             hard_stop: cfg.llm.budget.hard_stop,
         },
     };
-    router.call(pool, &LlmRequest {
-        model,
-        prompt: prompt.to_string(),
-        purpose: purpose.to_string(),
-    }).await
+    router
+        .call(
+            pool,
+            &LlmRequest {
+                model,
+                prompt: prompt.to_string(),
+                purpose: purpose.to_string(),
+            },
+        )
+        .await
 }

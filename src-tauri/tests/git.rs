@@ -4,7 +4,11 @@ use std::process::Command;
 use tempfile::tempdir;
 
 fn run(cmd: &str, args: &[&str], cwd: &std::path::Path) {
-    let status = Command::new(cmd).args(args).current_dir(cwd).status().unwrap();
+    let status = Command::new(cmd)
+        .args(args)
+        .current_dir(cwd)
+        .status()
+        .unwrap();
     assert!(status.success(), "{cmd} {args:?} failed");
 }
 
@@ -30,7 +34,10 @@ fn collect_returns_recent_commits_in_window() {
     assert_eq!(events.len(), 2);
     assert_eq!(events[0].payload.message_summary, "second commit");
     assert_eq!(events[1].payload.message_summary, "first commit");
-    assert!(events[0].payload.files_changed.contains(&"b.txt".to_string()));
+    assert!(events[0]
+        .payload
+        .files_changed
+        .contains(&"b.txt".to_string()));
 }
 
 #[test]
@@ -44,7 +51,10 @@ fn collect_filters_out_commits_before_since() {
 fn collect_errors_on_non_repo() {
     let dir = tempdir().unwrap();
     let err = collect(dir.path(), Utc::now()).unwrap_err();
-    assert!(matches!(err, devscope_lib::error::AppError::NotAGitRepo { .. }));
+    assert!(matches!(
+        err,
+        devscope_lib::error::AppError::NotAGitRepo { .. }
+    ));
 }
 
 #[test]

@@ -1,7 +1,7 @@
-use std::path::Path;
 use chrono::TimeZone;
 use git2::{DiffFormat, DiffOptions, ErrorClass, ErrorCode, Repository, StatusOptions, Time};
 use serde::Serialize;
+use std::path::Path;
 
 use crate::error::{AppError, AppResult};
 
@@ -17,7 +17,9 @@ pub struct WorkingTreeStatus {
 
 pub fn working_tree_status(repo_path: &Path) -> AppResult<WorkingTreeStatus> {
     if !repo_path.join(".git").exists() {
-        return Err(AppError::NotAGitRepo { path: repo_path.display().to_string() });
+        return Err(AppError::NotAGitRepo {
+            path: repo_path.display().to_string(),
+        });
     }
     let repo = Repository::open(repo_path)?;
     let mut so = StatusOptions::new();
@@ -37,7 +39,12 @@ pub fn working_tree_status(repo_path: &Path) -> AppResult<WorkingTreeStatus> {
         }
     }
     let has_changes = modified + untracked + deleted > 0;
-    Ok(WorkingTreeStatus { modified, untracked, deleted, has_changes })
+    Ok(WorkingTreeStatus {
+        modified,
+        untracked,
+        deleted,
+        has_changes,
+    })
 }
 
 pub struct WorkingTreeSummary {
@@ -49,7 +56,9 @@ pub struct WorkingTreeSummary {
 
 pub fn summarize_working_tree(repo_path: &Path) -> AppResult<WorkingTreeSummary> {
     if !repo_path.join(".git").exists() {
-        return Err(AppError::NotAGitRepo { path: repo_path.display().to_string() });
+        return Err(AppError::NotAGitRepo {
+            path: repo_path.display().to_string(),
+        });
     }
     let repo = Repository::open(repo_path)?;
 
@@ -85,7 +94,10 @@ pub fn summarize_working_tree(repo_path: &Path) -> AppResult<WorkingTreeSummary>
 
     let mut buf = String::new();
     let print_res = diff.print(DiffFormat::Patch, |_, _, line| {
-        let prefix = match line.origin() { '+' | '-' | ' ' => Some(line.origin()), _ => None };
+        let prefix = match line.origin() {
+            '+' | '-' | ' ' => Some(line.origin()),
+            _ => None,
+        };
         if let Some(c) = prefix {
             buf.push(c);
         }
@@ -96,18 +108,26 @@ pub fn summarize_working_tree(repo_path: &Path) -> AppResult<WorkingTreeSummary>
     // error; treat that case as a signal that we hit the byte limit.
     let truncated = match print_res {
         Ok(()) => buf.len() >= DIFF_LIMIT_BYTES,
-        Err(e) if e.class() == ErrorClass::Callback
-                  && e.code() == ErrorCode::User
-                  && buf.len() >= DIFF_LIMIT_BYTES => true,
+        Err(e)
+            if e.class() == ErrorClass::Callback
+                && e.code() == ErrorCode::User
+                && buf.len() >= DIFF_LIMIT_BYTES =>
+        {
+            true
+        }
         Err(e) => return Err(e.into()),
     };
     if truncated {
         let mut cut = DIFF_LIMIT_BYTES;
-        while !buf.is_char_boundary(cut) { cut -= 1; }
+        while !buf.is_char_boundary(cut) {
+            cut -= 1;
+        }
         buf.truncate(cut);
     }
 
-    let last_commit_date = repo.head().ok()
+    let last_commit_date = repo
+        .head()
+        .ok()
         .and_then(|h| h.peel_to_commit().ok())
         .and_then(|c| {
             let t: Time = c.time();
@@ -138,7 +158,10 @@ pub fn recent_commit_examples(repo_path: &Path, n: usize) -> AppResult<Vec<Commi
     for oid in walk.take(n) {
         let c = repo.find_commit(oid?)?;
         let subject = c.summary().unwrap_or("").to_string();
-        let body = c.body().map(|b| b.trim().to_string()).filter(|s| !s.is_empty());
+        let body = c
+            .body()
+            .map(|b| b.trim().to_string())
+            .filter(|s| !s.is_empty());
         out.push(CommitExample { subject, body });
     }
     Ok(out)

@@ -1,5 +1,5 @@
-use serde::Serialize;
 use crate::error::AppResult;
+use serde::Serialize;
 
 #[derive(Serialize, specta::Type)]
 pub struct HealthInfo {

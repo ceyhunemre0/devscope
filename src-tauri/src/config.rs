@@ -1,5 +1,5 @@
-use std::path::Path;
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 use crate::error::AppResult;
 use crate::paths;
@@ -40,7 +40,10 @@ pub struct LlmModelDefaults {
 }
 impl Default for LlmModelDefaults {
     fn default() -> Self {
-        Self { ollama: default_ollama_model(), openai: default_openai_model() }
+        Self {
+            ollama: default_ollama_model(),
+            openai: default_openai_model(),
+        }
     }
 }
 
@@ -53,7 +56,10 @@ pub struct BudgetSettings {
 }
 impl Default for BudgetSettings {
     fn default() -> Self {
-        Self { monthly_usd: default_monthly_usd(), hard_stop: true }
+        Self {
+            monthly_usd: default_monthly_usd(),
+            hard_stop: true,
+        }
     }
 }
 
@@ -73,13 +79,27 @@ impl Default for ScannerSettings {
     }
 }
 
-fn default_provider_chain() -> Vec<String> { vec!["ollama".into()] }
-fn default_ollama_model() -> String { "llama3.1:8b".into() }
-fn default_openai_model() -> String { "gpt-4o-mini".into() }
-fn default_monthly_usd() -> f64 { 20.0 }
-fn default_true() -> bool { true }
-fn default_auto_rescan_days() -> u32 { 30 }
-fn default_max_discover_depth() -> u32 { 4 }
+fn default_provider_chain() -> Vec<String> {
+    vec!["ollama".into()]
+}
+fn default_ollama_model() -> String {
+    "llama3.1:8b".into()
+}
+fn default_openai_model() -> String {
+    "gpt-4o-mini".into()
+}
+fn default_monthly_usd() -> f64 {
+    20.0
+}
+fn default_true() -> bool {
+    true
+}
+fn default_auto_rescan_days() -> u32 {
+    30
+}
+fn default_max_discover_depth() -> u32 {
+    4
+}
 
 pub fn load() -> AppResult<Settings> {
     let p = paths::config_path()?;

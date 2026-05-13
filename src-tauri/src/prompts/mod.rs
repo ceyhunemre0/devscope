@@ -12,10 +12,17 @@ fn engine() -> &'static Tera {
     TERA.get_or_init(|| {
         let mut tera = Tera::default();
         tera.add_raw_templates(vec![
-            ("standup",         include_str!("../../templates/standup.tera")),
-            ("commit_message",  include_str!("../../templates/commit_message.tera")),
-            ("extract_changes", include_str!("../../templates/extract_changes.tera")),
-        ]).expect("templates compile at startup");
+            ("standup", include_str!("../../templates/standup.tera")),
+            (
+                "commit_message",
+                include_str!("../../templates/commit_message.tera"),
+            ),
+            (
+                "extract_changes",
+                include_str!("../../templates/extract_changes.tera"),
+            ),
+        ])
+        .expect("templates compile at startup");
         tera.register_filter("hm", filters::hm);
         tera
     })

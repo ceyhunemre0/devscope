@@ -12,7 +12,9 @@ fn set_mode_600(p: &Path) -> std::io::Result<()> {
     std::fs::set_permissions(p, perms)
 }
 #[cfg(not(unix))]
-fn set_mode_600(_p: &Path) -> std::io::Result<()> { Ok(()) }
+fn set_mode_600(_p: &Path) -> std::io::Result<()> {
+    Ok(())
+}
 
 pub fn load_all() -> AppResult<BTreeMap<String, String>> {
     let p = paths::secrets_path()?;
@@ -40,7 +42,9 @@ pub fn delete(key: &str) -> AppResult<()> {
 }
 
 pub fn mask(value: &str) -> String {
-    if value.len() <= 8 { return "•".repeat(value.len()); }
+    if value.len() <= 8 {
+        return "•".repeat(value.len());
+    }
     format!("{}…{}", &value[..4], &value[value.len() - 4..])
 }
 

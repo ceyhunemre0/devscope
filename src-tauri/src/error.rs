@@ -45,31 +45,49 @@ pub enum AppError {
 }
 
 impl From<std::io::Error> for AppError {
-    fn from(e: std::io::Error) -> Self { Self::Io(e.to_string()) }
+    fn from(e: std::io::Error) -> Self {
+        Self::Io(e.to_string())
+    }
 }
 impl From<sqlx::Error> for AppError {
-    fn from(e: sqlx::Error) -> Self { Self::Db(e.to_string()) }
+    fn from(e: sqlx::Error) -> Self {
+        Self::Db(e.to_string())
+    }
 }
 impl From<sqlx::migrate::MigrateError> for AppError {
-    fn from(e: sqlx::migrate::MigrateError) -> Self { Self::Db(e.to_string()) }
+    fn from(e: sqlx::migrate::MigrateError) -> Self {
+        Self::Db(e.to_string())
+    }
 }
 impl From<git2::Error> for AppError {
-    fn from(e: git2::Error) -> Self { Self::Git(e.to_string()) }
+    fn from(e: git2::Error) -> Self {
+        Self::Git(e.to_string())
+    }
 }
 impl From<reqwest::Error> for AppError {
-    fn from(e: reqwest::Error) -> Self { Self::Http(e.to_string()) }
+    fn from(e: reqwest::Error) -> Self {
+        Self::Http(e.to_string())
+    }
 }
 impl From<tera::Error> for AppError {
-    fn from(e: tera::Error) -> Self { Self::Template(e.to_string()) }
+    fn from(e: tera::Error) -> Self {
+        Self::Template(e.to_string())
+    }
 }
 impl From<serde_json::Error> for AppError {
-    fn from(e: serde_json::Error) -> Self { Self::Internal(e.to_string()) }
+    fn from(e: serde_json::Error) -> Self {
+        Self::Internal(e.to_string())
+    }
 }
 impl From<toml::de::Error> for AppError {
-    fn from(e: toml::de::Error) -> Self { Self::Internal(format!("toml: {e}")) }
+    fn from(e: toml::de::Error) -> Self {
+        Self::Internal(format!("toml: {e}"))
+    }
 }
 impl From<toml::ser::Error> for AppError {
-    fn from(e: toml::ser::Error) -> Self { Self::Internal(format!("toml: {e}")) }
+    fn from(e: toml::ser::Error) -> Self {
+        Self::Internal(format!("toml: {e}"))
+    }
 }
 
 pub type AppResult<T> = Result<T, AppError>;

@@ -1,14 +1,16 @@
-use std::path::Path;
 use chrono::{DateTime, TimeZone, Utc};
 use git2::{DiffOptions, Repository, Sort};
+use std::path::Path;
 
-use crate::error::{AppError, AppResult};
 use super::{CollectedEvent, CommitPayload};
+use crate::error::{AppError, AppResult};
 
 /// Walk HEAD backwards, collecting commits with author time >= `since`.
 pub fn collect(repo_path: &Path, since: DateTime<Utc>) -> AppResult<Vec<CollectedEvent>> {
     if !repo_path.join(".git").exists() {
-        return Err(AppError::NotAGitRepo { path: repo_path.display().to_string() });
+        return Err(AppError::NotAGitRepo {
+            path: repo_path.display().to_string(),
+        });
     }
     let repo = Repository::open(repo_path)?;
     let mut walk = repo.revwalk()?;
@@ -19,7 +21,9 @@ pub fn collect(repo_path: &Path, since: DateTime<Utc>) -> AppResult<Vec<Collecte
     for oid in walk {
         let oid = oid?;
         let commit = repo.find_commit(oid)?;
-        let when = Utc.timestamp_opt(commit.time().seconds(), 0).single()
+        let when = Utc
+            .timestamp_opt(commit.time().seconds(), 0)
+            .single()
             .ok_or_else(|| AppError::Internal("invalid commit time".into()))?;
         if when < since {
             break;

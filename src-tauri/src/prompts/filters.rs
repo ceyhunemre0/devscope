@@ -1,6 +1,6 @@
-use std::collections::HashMap;
 use chrono::{DateTime, Utc};
-use tera::{Value, Error as TeraError};
+use std::collections::HashMap;
+use tera::{Error as TeraError, Value};
 
 pub fn hm(value: &Value, _args: &HashMap<String, Value>) -> Result<Value, TeraError> {
     let dt: DateTime<Utc> = serde_json::from_value(value.clone())

@@ -1,5 +1,5 @@
-use std::path::{Path, PathBuf};
 use serde::Serialize;
+use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
 #[derive(Debug, Serialize, specta::Type)]

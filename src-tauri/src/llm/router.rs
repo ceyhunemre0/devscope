@@ -1,8 +1,8 @@
 use chrono::Utc;
 use sqlx::SqlitePool;
 
+use super::{budget::BudgetGuard, LlmProvider, LlmRequest, LlmResponse};
 use crate::error::{AppError, AppResult};
-use super::{LlmProvider, LlmRequest, LlmResponse, budget::BudgetGuard};
 
 pub struct LlmRouter {
     pub chain: Vec<Box<dyn LlmProvider>>,
@@ -38,7 +38,7 @@ impl LlmRouter {
                     if let Err(db_err) = sqlx::query(
                         "INSERT INTO llm_calls
                          (provider, model, purpose, succeeded, error, called_at)
-                         VALUES (?,?,?,0,?,?)"
+                         VALUES (?,?,?,0,?,?)",
                     )
                     .bind(provider.name())
                     .bind(&req.model)

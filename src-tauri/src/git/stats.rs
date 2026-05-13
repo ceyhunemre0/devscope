@@ -1,7 +1,7 @@
-use std::path::Path;
 use chrono::{DateTime, TimeZone, Utc};
 use git2::{Repository, Sort};
 use std::collections::BTreeMap;
+use std::path::Path;
 
 use crate::error::AppResult;
 
@@ -26,10 +26,17 @@ pub fn daily_commit_counts(
         let commit = repo.find_commit(oid)?;
         let when = Utc.timestamp_opt(commit.time().seconds(), 0).single();
         let Some(when) = when else { continue };
-        if when < since { break; }
-        if when > until { continue; }
+        if when < since {
+            break;
+        }
+        if when > until {
+            continue;
+        }
         let date = when.date_naive();
         *bucket.entry(date).or_insert(0) += 1;
     }
-    Ok(bucket.into_iter().map(|(date, count)| DailyCount { date, count }).collect())
+    Ok(bucket
+        .into_iter()
+        .map(|(date, count)| DailyCount { date, count })
+        .collect())
 }

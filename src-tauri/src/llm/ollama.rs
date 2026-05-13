@@ -1,9 +1,9 @@
-use std::time::Instant;
-use serde_json::json;
 use async_trait::async_trait;
+use serde_json::json;
+use std::time::Instant;
 
-use crate::error::{AppError, AppResult};
 use super::{LlmProvider, LlmRequest, LlmResponse};
+use crate::error::{AppError, AppResult};
 
 pub struct OllamaProvider {
     pub base_url: String,
@@ -25,11 +25,14 @@ impl Default for OllamaProvider {
 
 #[async_trait]
 impl LlmProvider for OllamaProvider {
-    fn name(&self) -> &'static str { "ollama" }
+    fn name(&self) -> &'static str {
+        "ollama"
+    }
 
     async fn call(&self, req: &LlmRequest) -> AppResult<LlmResponse> {
         let started = Instant::now();
-        let resp = self.client
+        let resp = self
+            .client
             .post(format!("{}/api/generate", self.base_url))
             .json(&json!({
                 "model": req.model,
@@ -38,7 +41,10 @@ impl LlmProvider for OllamaProvider {
             }))
             .send()
             .await
-            .map_err(|e| AppError::LlmProvider { provider: "ollama".into(), message: e.to_string() })?;
+            .map_err(|e| AppError::LlmProvider {
+                provider: "ollama".into(),
+                message: e.to_string(),
+            })?;
 
         if !resp.status().is_success() {
             return Err(AppError::LlmProvider {
@@ -47,7 +53,11 @@ impl LlmProvider for OllamaProvider {
             });
         }
         let v: serde_json::Value = resp.json().await?;
-        let content = v.get("response").and_then(|x| x.as_str()).unwrap_or("").to_string();
+        let content = v
+            .get("response")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string();
         let duration_ms = started.elapsed().as_millis() as i64;
         Ok(LlmResponse {
             content,

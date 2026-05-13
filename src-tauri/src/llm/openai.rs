@@ -1,9 +1,9 @@
-use std::time::Instant;
-use serde_json::json;
 use async_trait::async_trait;
+use serde_json::json;
+use std::time::Instant;
 
-use crate::error::{AppError, AppResult};
 use super::{LlmProvider, LlmRequest, LlmResponse};
+use crate::error::{AppError, AppResult};
 
 pub struct OpenAIProvider {
     pub api_key: String,
@@ -24,19 +24,22 @@ impl OpenAIProvider {
     fn price_per_million(model: &str) -> Option<(f64, f64)> {
         match model {
             "gpt-4o-mini" => Some((0.150, 0.600)),
-            "gpt-4o"      => Some((2.500, 10.000)),
-            _             => None,
+            "gpt-4o" => Some((2.500, 10.000)),
+            _ => None,
         }
     }
 }
 
 #[async_trait]
 impl LlmProvider for OpenAIProvider {
-    fn name(&self) -> &'static str { "openai" }
+    fn name(&self) -> &'static str {
+        "openai"
+    }
 
     async fn call(&self, req: &LlmRequest) -> AppResult<LlmResponse> {
         let started = Instant::now();
-        let resp = self.client
+        let resp = self
+            .client
             .post("https://api.openai.com/v1/chat/completions")
             .bearer_auth(&self.api_key)
             .json(&json!({
@@ -45,7 +48,10 @@ impl LlmProvider for OpenAIProvider {
             }))
             .send()
             .await
-            .map_err(|e| AppError::LlmProvider { provider: "openai".into(), message: e.to_string() })?;
+            .map_err(|e| AppError::LlmProvider {
+                provider: "openai".into(),
+                message: e.to_string(),
+            })?;
 
         if !resp.status().is_success() {
             let status = resp.status();
@@ -56,12 +62,15 @@ impl LlmProvider for OpenAIProvider {
             });
         }
         let v: serde_json::Value = resp.json().await?;
-        let content = v.pointer("/choices/0/message/content")
+        let content = v
+            .pointer("/choices/0/message/content")
             .and_then(|x| x.as_str())
             .unwrap_or("")
             .to_string();
         let pt = v.pointer("/usage/prompt_tokens").and_then(|x| x.as_i64());
-        let ot = v.pointer("/usage/completion_tokens").and_then(|x| x.as_i64());
+        let ot = v
+            .pointer("/usage/completion_tokens")
+            .and_then(|x| x.as_i64());
         let cost = Self::price_per_million(&req.model).map(|(in_p, out_p)| {
             pt.unwrap_or(0) as f64 / 1_000_000.0 * in_p
                 + ot.unwrap_or(0) as f64 / 1_000_000.0 * out_p

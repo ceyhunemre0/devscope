@@ -11,10 +11,12 @@ pub struct BudgetGuard {
 impl BudgetGuard {
     pub async fn spent_this_month(&self, pool: &SqlitePool) -> AppResult<f64> {
         let now = Utc::now();
-        let month_start = Utc.with_ymd_and_hms(now.year(), now.month(), 1, 0, 0, 0).unwrap();
+        let month_start = Utc
+            .with_ymd_and_hms(now.year(), now.month(), 1, 0, 0, 0)
+            .unwrap();
 
         let row: (Option<f64>,) = sqlx::query_as(
-            "SELECT COALESCE(SUM(cost_usd), 0.0) FROM llm_calls WHERE called_at >= ?"
+            "SELECT COALESCE(SUM(cost_usd), 0.0) FROM llm_calls WHERE called_at >= ?",
         )
         .bind(month_start)
         .fetch_one(pool)

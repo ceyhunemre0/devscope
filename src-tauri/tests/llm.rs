@@ -17,9 +17,15 @@ async fn budget_blocks_when_spent_exceeds_limit() {
     .bind("openai").bind("gpt-4o-mini").bind("standup").bind(25.0).bind(Utc::now())
     .execute(&pool).await.unwrap();
 
-    let guard = BudgetGuard { monthly_usd: 20.0, hard_stop: true };
+    let guard = BudgetGuard {
+        monthly_usd: 20.0,
+        hard_stop: true,
+    };
     let err = guard.check(&pool).await.unwrap_err();
-    assert!(matches!(err, devscope_lib::error::AppError::BudgetExhausted { .. }));
+    assert!(matches!(
+        err,
+        devscope_lib::error::AppError::BudgetExhausted { .. }
+    ));
 }
 
 #[tokio::test]
@@ -33,14 +39,22 @@ async fn budget_passes_when_hard_stop_disabled() {
     .bind("openai").bind("gpt-4o-mini").bind("standup").bind(999.0).bind(Utc::now())
     .execute(&pool).await.unwrap();
 
-    let guard = BudgetGuard { monthly_usd: 1.0, hard_stop: false };
-    guard.check(&pool).await.expect("hard_stop=false must not block");
+    let guard = BudgetGuard {
+        monthly_usd: 1.0,
+        hard_stop: false,
+    };
+    guard
+        .check(&pool)
+        .await
+        .expect("hard_stop=false must not block");
 }
 
 struct StubOk;
 #[async_trait]
 impl LlmProvider for StubOk {
-    fn name(&self) -> &'static str { "stub" }
+    fn name(&self) -> &'static str {
+        "stub"
+    }
     async fn call(&self, req: &LlmRequest) -> devscope_lib::error::AppResult<LlmResponse> {
         Ok(LlmResponse {
             content: format!("echo: {}", req.prompt),
@@ -61,7 +75,10 @@ async fn router_records_successful_call_in_llm_calls() {
 
     let router = LlmRouter {
         chain: vec![Box::new(StubOk)],
-        guard: BudgetGuard { monthly_usd: 100.0, hard_stop: true },
+        guard: BudgetGuard {
+            monthly_usd: 100.0,
+            hard_stop: true,
+        },
     };
     let req = LlmRequest {
         model: "test".into(),
@@ -71,9 +88,12 @@ async fn router_records_successful_call_in_llm_calls() {
     let (resp, id) = router.call(&pool, &req).await.unwrap();
     assert_eq!(resp.content, "echo: hello");
 
-    let row: (String, i64) = sqlx::query_as("SELECT provider, succeeded FROM llm_calls WHERE id = ?")
-        .bind(id)
-        .fetch_one(&pool).await.unwrap();
+    let row: (String, i64) =
+        sqlx::query_as("SELECT provider, succeeded FROM llm_calls WHERE id = ?")
+            .bind(id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(row.0, "stub");
     assert_eq!(row.1, 1);
 }

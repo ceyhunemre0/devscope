@@ -1,8 +1,8 @@
 use chrono::{TimeZone, Utc};
 use serde::Serialize;
 
-use crate::error::{AppError, AppResult};
 use super::{GithubRepo, GithubUser};
+use crate::error::{AppError, AppResult};
 
 #[derive(Debug, Clone, Serialize, specta::Type)]
 pub struct ContributionDay {
@@ -35,11 +35,16 @@ impl GithubClient {
 
     fn check_rate_limit(resp: &reqwest::Response) -> AppResult<()> {
         if resp.status().as_u16() == 403 {
-            if let Some(reset) = resp.headers().get("x-ratelimit-reset")
+            if let Some(reset) = resp
+                .headers()
+                .get("x-ratelimit-reset")
                 .and_then(|v| v.to_str().ok())
                 .and_then(|s| s.parse::<i64>().ok())
             {
-                let when = Utc.timestamp_opt(reset, 0).single().unwrap_or_else(Utc::now);
+                let when = Utc
+                    .timestamp_opt(reset, 0)
+                    .single()
+                    .unwrap_or_else(Utc::now);
                 return Err(AppError::GithubRateLimited { reset_at: when });
             }
         }
@@ -47,11 +52,13 @@ impl GithubClient {
     }
 
     pub async fn me(&self) -> AppResult<GithubUser> {
-        let resp = self.client
+        let resp = self
+            .client
             .get("https://api.github.com/user")
             .bearer_auth(&self.token)
             .header("Accept", "application/vnd.github+json")
-            .send().await?;
+            .send()
+            .await?;
         Self::check_rate_limit(&resp)?;
         if resp.status() == 401 {
             return Err(AppError::GithubAuthRequired);
@@ -64,7 +71,8 @@ impl GithubClient {
         let mut out = Vec::new();
         let mut page: u32 = 1;
         loop {
-            let resp = self.client
+            let resp = self
+                .client
                 .get("https://api.github.com/user/repos")
                 .bearer_auth(&self.token)
                 .header("Accept", "application/vnd.github+json")
@@ -73,7 +81,8 @@ impl GithubClient {
                     ("page", page.to_string()),
                     ("sort", "updated".to_string()),
                 ])
-                .send().await?;
+                .send()
+                .await?;
             Self::check_rate_limit(&resp)?;
             if resp.status() == 401 {
                 return Err(AppError::GithubAuthRequired);
@@ -85,7 +94,9 @@ impl GithubClient {
                 break;
             }
             page += 1;
-            if page > 20 { break; }
+            if page > 20 {
+                break;
+            }
         }
         Ok(out)
     }
@@ -116,11 +127,13 @@ impl GithubClient {
                 "to": until.to_rfc3339(),
             }
         });
-        let resp = self.client
+        let resp = self
+            .client
             .post("https://api.github.com/graphql")
             .bearer_auth(&self.token)
             .json(&body)
-            .send().await?;
+            .send()
+            .await?;
         if resp.status() == 401 {
             return Err(AppError::GithubAuthRequired);
         }
