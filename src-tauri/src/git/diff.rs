@@ -1,6 +1,6 @@
 use std::path::Path;
 use chrono::TimeZone;
-use git2::{DiffFormat, DiffOptions, Repository, StatusOptions, Time};
+use git2::{DiffFormat, DiffOptions, ErrorClass, ErrorCode, Repository, StatusOptions, Time};
 
 use crate::error::{AppError, AppResult};
 
@@ -62,7 +62,9 @@ pub fn summarize_working_tree(repo_path: &Path) -> AppResult<WorkingTreeSummary>
     // error; treat that case as a signal that we hit the byte limit.
     let truncated = match print_res {
         Ok(()) => buf.len() >= DIFF_LIMIT_BYTES,
-        Err(e) if buf.len() >= DIFF_LIMIT_BYTES => { let _ = e; true }
+        Err(e) if e.class() == ErrorClass::Callback
+                  && e.code() == ErrorCode::User
+                  && buf.len() >= DIFF_LIMIT_BYTES => true,
         Err(e) => return Err(e.into()),
     };
     if truncated {
