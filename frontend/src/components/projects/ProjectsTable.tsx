@@ -14,6 +14,7 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table";
+import { openExternal } from "@/lib/external";
 
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
@@ -109,6 +110,47 @@ type SortDir = "asc" | "desc";
 function SortIndicator({ active, dir }: { active: boolean; dir: SortDir }) {
   if (!active) return <span className="text-muted-foreground/40">↕</span>;
   return <span className="text-foreground">{dir === "asc" ? "↑" : "↓"}</span>;
+}
+
+function UncommittedBadge({
+  projectId,
+  enabled,
+}: {
+  projectId: number;
+  enabled: boolean;
+}) {
+  const { data: status } = useQuery({
+    queryKey: ["working-tree-status", projectId],
+    queryFn: () => api.workingTreeStatus(projectId),
+    staleTime: 30_000,
+    enabled,
+  });
+
+  if (!status?.has_changes) return null;
+  const dirtyCount = status.modified + status.untracked + status.deleted;
+  if (dirtyCount <= 0) return null;
+
+  return (
+    <span className="text-xs text-amber-400 font-mono whitespace-nowrap">
+      Uncommitted {dirtyCount}
+    </span>
+  );
+}
+
+function GithubFullNameLink({ fullName }: { fullName: string }) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        openExternal(`https://github.com/${fullName}`).catch(() => {});
+      }}
+      className="text-xs text-muted-foreground hover:text-foreground transition-colors font-mono whitespace-nowrap"
+      title={`Open github.com/${fullName} in browser`}
+    >
+      ↗ github.com/{fullName}
+    </button>
+  );
 }
 
 function PathCell({ path }: { path: string }) {
@@ -256,6 +298,15 @@ export function ProjectsTable() {
                       <TableCell>
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium">{project.name}</span>
+                          {project.github_full_name && (
+                            <GithubFullNameLink
+                              fullName={project.github_full_name}
+                            />
+                          )}
+                          <UncommittedBadge
+                            projectId={project.id}
+                            enabled={project.state === "active"}
+                          />
                         </div>
                       </TableCell>
                       <TableCell

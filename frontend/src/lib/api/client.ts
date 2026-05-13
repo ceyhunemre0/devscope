@@ -18,6 +18,9 @@ import type {
   CloneArgs,
   SettingsPatch,
   HealthInfo,
+  WorkingTreeStatus,
+  SecretStatus,
+  GithubContributions,
 } from "./types";
 
 function formatDetail(kind: string, detail: unknown): string {
@@ -72,6 +75,8 @@ export const api = {
     call<DiscoveredRepo[]>("discover_repos", { root, maxDepth }),
   bulkAddProjects: (items: BulkAddItem[]) =>
     call<Project[]>("bulk_add_projects", { items }),
+  workingTreeStatus: (projectId: number) =>
+    call<WorkingTreeStatus>("working_tree_status_for_project", { projectId }),
 
   listReports: (filter?: ReportFilter) =>
     call<Report[]>("list_reports", { filter: filter ?? null }),
@@ -93,6 +98,10 @@ export const api = {
   listGithubRepos: () => call<GithubRepo[]>("list_github_repos"),
   cloneGithubRepo: (args: CloneArgs) =>
     call<Project>("clone_github_repo", { args }),
+  githubContributions: (login: string, sinceDays: number) =>
+    call<GithubContributions>("github_contributions", {
+      args: { login, since_days: sinceDays },
+    }),
 
   getSettings: () => call<Settings>("get_settings"),
   saveSettings: (patch: SettingsPatch) =>
@@ -100,4 +109,5 @@ export const api = {
   setSecret: (key: string, value: string) =>
     call<void>("set_secret", { key, value }),
   deleteSecret: (key: string) => call<void>("delete_secret", { key }),
+  getSecretStatus: () => call<SecretStatus>("get_secret_status"),
 };

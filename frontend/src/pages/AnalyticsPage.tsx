@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { GitHubHeatmap } from "@/components/GitHubHeatmap";
 import { api } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 import type { DayBucket } from "@/lib/api/types";
@@ -147,6 +148,13 @@ export default function AnalyticsPage() {
     queryFn: () => api.getStats(rangeDays),
   });
 
+  const { data: github } = useQuery({
+    queryKey: ["github-status"],
+    queryFn: api.githubStatus,
+  });
+
+  const githubLogin = github?.user?.login ?? null;
+
   const totals = useMemo(() => {
     if (!stats) return { commits: 0, activeDays: 0 };
     const commits = stats.days.reduce((acc, d) => acc + d.count, 0);
@@ -211,6 +219,22 @@ export default function AnalyticsPage() {
           )}
         </CardContent>
       </Card>
+
+      {githubLogin && (
+        <Card className="mb-6">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">
+              GitHub activity ·{" "}
+              <span className="font-mono text-muted-foreground">
+                @{githubLogin}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <GitHubHeatmap login={githubLogin} />
+          </CardContent>
+        </Card>
+      )}
     </>
   );
 }

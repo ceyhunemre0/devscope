@@ -30,7 +30,6 @@ export default function SettingsPage() {
   const [clearError, setClearError] = useState<string | null>(null);
   const [savedVisible, setSavedVisible] = useState(false);
   const [clearedVisible, setClearedVisible] = useState(false);
-  const [openaiStored, setOpenaiStored] = useState(false);
 
   const [ghToken, setGhToken] = useState("");
   const [ghSaveError, setGhSaveError] = useState<string | null>(null);
@@ -50,6 +49,16 @@ export default function SettingsPage() {
     queryKey: ["github-status"],
     queryFn: api.githubStatus,
   });
+
+  const { data: secretStatus } = useQuery({
+    queryKey: ["secret-status"],
+    queryFn: api.getSecretStatus,
+  });
+
+  const openaiStored = !!secretStatus?.openai_key_stored;
+  const openaiMasked = secretStatus?.openai_key_masked ?? null;
+  const openaiEnvActive = !!secretStatus?.openai_env_active;
+  const githubTokenStored = !!secretStatus?.github_token_stored;
 
   useEffect(() => {
     if (!savedVisible) return;
@@ -72,10 +81,10 @@ export default function SettingsPage() {
   const saveMutation = useMutation({
     mutationFn: () => api.setSecret("OPENAI_API_KEY", apiKey),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["secret-status"] });
       setApiKey("");
       setSaveError(null);
       setSavedVisible(true);
-      setOpenaiStored(true);
     },
     onError: (err: unknown) => {
       setSaveError(
@@ -87,10 +96,10 @@ export default function SettingsPage() {
   const clearMutation = useMutation({
     mutationFn: () => api.deleteSecret("OPENAI_API_KEY"),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["secret-status"] });
       setClearError(null);
       setClearedVisible(true);
       setPendingClear(null);
-      setOpenaiStored(false);
     },
     onError: (err: unknown) => {
       setClearError(
@@ -105,6 +114,7 @@ export default function SettingsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["github-status"] });
       queryClient.invalidateQueries({ queryKey: ["github-repos"] });
+      queryClient.invalidateQueries({ queryKey: ["secret-status"] });
       setGhToken("");
       setGhSaveError(null);
       setGhSavedVisible(true);
@@ -123,6 +133,7 @@ export default function SettingsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["github-status"] });
       queryClient.invalidateQueries({ queryKey: ["github-repos"] });
+      queryClient.invalidateQueries({ queryKey: ["secret-status"] });
       setGhClearError(null);
       setGhClearedVisible(true);
       setPendingClear(null);
@@ -141,7 +152,14 @@ export default function SettingsPage() {
     if (openaiStored) {
       return (
         <Badge className="bg-violet-500/15 text-violet-400 border-violet-500/20">
-          STORED
+          STORED{openaiMasked ? ` · ${openaiMasked}` : ""}
+        </Badge>
+      );
+    }
+    if (openaiEnvActive) {
+      return (
+        <Badge className="bg-sky-500/15 text-sky-400 border-sky-500/20">
+          FROM ENV
         </Badge>
       );
     }
@@ -202,6 +220,13 @@ export default function SettingsPage() {
             {statusBadge()}
           </div>
 
+          {openaiEnvActive && (
+            <p className="text-xs text-muted-foreground">
+              Detected from environment (<code>OPENAI_API_KEY</code>). The env
+              variable takes precedence over the stored key.
+            </p>
+          )}
+
           {savedVisible && <p className="text-sm text-emerald-500">Saved.</p>}
           {clearedVisible && <p className="text-sm text-emerald-500">Cleared.</p>}
           {saveError && <p className="text-sm text-destructive">{saveError}</p>}
@@ -239,7 +264,7 @@ export default function SettingsPage() {
               >
                 {ghSaveMutation.isPending ? "Verifying…" : "Save"}
               </Button>
-              {github?.configured && (
+              {(githubTokenStored || github?.configured) && (
                 <Button
                   variant="destructive"
                   onClick={() => setPendingClear("github")}

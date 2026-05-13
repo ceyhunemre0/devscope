@@ -24,4 +24,8 @@ export type {
   SettingsPatch,
   HealthInfo,
   AppError,
+  WorkingTreeStatus,
+  SecretStatus,
+  GithubContributions,
+  ContributionDay,
 } from "../types/generated";
