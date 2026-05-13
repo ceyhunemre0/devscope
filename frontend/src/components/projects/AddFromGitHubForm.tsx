@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { FolderPickerButton } from "./FolderPickerButton";
 import type { GithubRepo } from "@/lib/api/types";
 
 export function AddFromGitHubForm() {
@@ -122,12 +123,18 @@ export function AddFromGitHubForm() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="gh-parent">Clone into (parent directory)</Label>
-            <Input
-              id="gh-parent"
-              placeholder="/Users/you/Desktop/Codes"
-              value={parentDir}
-              onChange={(e) => setParentDir(e.target.value)}
-            />
+            <div className="flex gap-2">
+              <Input
+                id="gh-parent"
+                placeholder="/Users/you/Desktop/Codes"
+                value={parentDir}
+                onChange={(e) => setParentDir(e.target.value)}
+              />
+              <FolderPickerButton
+                onSelect={setParentDir}
+                title="Choose clone destination folder"
+              />
+            </div>
           </div>
         </div>
 

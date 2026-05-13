@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { DiscoverDialog } from "./DiscoverDialog";
+import { FolderPickerButton } from "./FolderPickerButton";
 
 export function DiscoverForm() {
   const [root, setRoot] = useState("");
@@ -57,13 +58,19 @@ export function DiscoverForm() {
         <div className="flex flex-wrap gap-3 items-end">
           <div className="flex flex-col gap-1.5 flex-1 min-w-[200px]">
             <Label htmlFor="discover-root">Root folder</Label>
-            <Input
-              id="discover-root"
-              value={root}
-              onChange={(e) => setRoot(e.target.value)}
-              placeholder="/Users/you/Code"
-              required
-            />
+            <div className="flex gap-2">
+              <Input
+                id="discover-root"
+                value={root}
+                onChange={(e) => setRoot(e.target.value)}
+                placeholder="/Users/you/Code"
+                required
+              />
+              <FolderPickerButton
+                onSelect={setRoot}
+                title="Choose root folder to scan"
+              />
+            </div>
           </div>
           <div className="flex flex-col gap-1.5 w-24 shrink-0">
             <Label htmlFor="discover-depth">Depth</Label>

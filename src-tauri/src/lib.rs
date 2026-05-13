@@ -16,6 +16,7 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_log::Builder::default().level(log::LevelFilter::Info).build())
         .setup(|app| {
             let handle = app.handle().clone();
@@ -40,6 +41,7 @@ pub fn run() {
             commands::reports::run_today,
             commands::dashboard::get_dashboard,
             commands::stats::get_stats,
+            commands::stats::list_recent_commits,
             commands::commit::get_commit_context,
             commands::commit::generate_commit_message,
             commands::github::github_status,

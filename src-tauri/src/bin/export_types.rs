@@ -16,6 +16,7 @@ fn main() {
         devscope_lib::commands::reports::run_today,
         devscope_lib::commands::dashboard::get_dashboard,
         devscope_lib::commands::stats::get_stats,
+        devscope_lib::commands::stats::list_recent_commits,
         devscope_lib::commands::commit::get_commit_context,
         devscope_lib::commands::commit::generate_commit_message,
         devscope_lib::commands::github::github_status,

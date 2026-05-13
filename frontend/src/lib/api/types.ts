@@ -28,4 +28,5 @@ export type {
   SecretStatus,
   GithubContributions,
   ContributionDay,
+  CommitListItem,
 } from "../types/generated";

@@ -1,15 +1,23 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { GitCommit } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { GitHubHeatmap } from "@/components/GitHubHeatmap";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { api } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
-import type { DayBucket } from "@/lib/api/types";
+import type { CommitListItem, DayBucket } from "@/lib/api/types";
 
-type RangeKey = "7d" | "30d" | "90d" | "365d";
+type RangeKey = "2d" | "7d" | "30d" | "90d" | "365d";
 
 const RANGE_LABELS: Record<RangeKey, string> = {
+  "2d": "2 days",
   "7d": "7 days",
   "30d": "30 days",
   "90d": "90 days",
@@ -17,6 +25,7 @@ const RANGE_LABELS: Record<RangeKey, string> = {
 };
 
 const RANGE_DAYS: Record<RangeKey, number> = {
+  "2d": 2,
   "7d": 7,
   "30d": 30,
   "90d": 90,
@@ -54,12 +63,40 @@ function fmtDay(s: string): string {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+function fmtRelative(iso: string): string {
+  const now = Date.now();
+  const then = new Date(iso).getTime();
+  const diffMs = now - then;
+  const minute = 60_000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  if (diffMs < hour) {
+    const m = Math.max(1, Math.round(diffMs / minute));
+    return `${m}m ago`;
+  }
+  if (diffMs < day) {
+    const h = Math.round(diffMs / hour);
+    return `${h}h ago`;
+  }
+  if (diffMs < 7 * day) {
+    const d = Math.round(diffMs / day);
+    return `${d}d ago`;
+  }
+  return new Date(iso).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 function DailyBars({ data }: { data: DayBucket[] }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
   if (data.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">No commits in this range.</p>
+      <p className="text-sm text-muted-foreground">
+        No commits in this range.
+      </p>
     );
   }
 
@@ -73,7 +110,9 @@ function DailyBars({ data }: { data: DayBucket[] }) {
       <div className="h-5 mb-2 text-xs flex items-baseline justify-between gap-3">
         {hovered ? (
           <>
-            <span className="font-mono text-foreground">{fmtDay(hovered.date)}</span>
+            <span className="font-mono text-foreground">
+              {fmtDay(hovered.date)}
+            </span>
             <span className="font-mono text-muted-foreground">
               <span className="text-foreground">{hovered.count}</span> commit
               {hovered.count === 1 ? "" : "s"}
@@ -81,7 +120,7 @@ function DailyBars({ data }: { data: DayBucket[] }) {
           </>
         ) : (
           <span className="text-muted-foreground/70">
-            {totalCommits} commits across {data.length} day
+            {totalCommits} commits · {data.length} day
             {data.length === 1 ? "" : "s"} · peak {max}
           </span>
         )}
@@ -128,14 +167,118 @@ function DailyBars({ data }: { data: DayBucket[] }) {
       <div className="flex justify-between text-[10px] font-mono text-muted-foreground/70 mt-1 ml-6">
         <span>{fmtDay(data[0].date)}</span>
         {data.length > 2 && <span>{fmtDay(data[midIdx].date)}</span>}
-        {data.length > 1 && <span>{fmtDay(data[data.length - 1].date)}</span>}
+        {data.length > 1 && (
+          <span>{fmtDay(data[data.length - 1].date)}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CommitHistory({
+  rangeDays,
+  projectId,
+}: {
+  rangeDays: number;
+  projectId: number | null;
+}) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["commit-history", rangeDays, projectId],
+    queryFn: () =>
+      api.listRecentCommits(rangeDays, projectId ?? undefined),
+    staleTime: 60_000,
+  });
+
+  const grouped = useMemo(() => {
+    const items = data ?? [];
+    const map = new Map<string, CommitListItem[]>();
+    for (const c of items) {
+      const d = new Date(c.occurred_at);
+      const key = d.toLocaleDateString(undefined, {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+      const arr = map.get(key) ?? [];
+      arr.push(c);
+      map.set(key, arr);
+    }
+    return Array.from(map.entries()).map(([day, items]) => ({ day, items }));
+  }, [data]);
+
+  if (isLoading) {
+    return <p className="text-sm text-muted-foreground">Loading…</p>;
+  }
+  if (error) {
+    return (
+      <p className="text-sm text-destructive">Failed to load commit history.</p>
+    );
+  }
+  if (!data || data.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No commits in this range.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      {grouped.map(({ day, items }) => (
+        <div key={day} className="space-y-1.5">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-[0.08em] text-muted-foreground/80">
+            <span>{day}</span>
+            <span className="text-muted-foreground/40">·</span>
+            <span className="font-mono">{items.length}</span>
+          </div>
+          <div className="rounded-lg border border-border divide-y divide-border">
+            {items.map((c) => (
+              <CommitRow key={`${c.project_id}-${c.sha}`} commit={c} />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CommitRow({ commit }: { commit: CommitListItem }) {
+  return (
+    <div className="flex items-start gap-3 px-3 py-2 hover:bg-accent/30 transition-colors">
+      <GitCommit
+        size={14}
+        strokeWidth={1.75}
+        className="mt-1 text-violet-400 shrink-0"
+      />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm text-foreground truncate">{commit.message}</p>
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground/80 font-mono">
+          <span className="text-muted-foreground">
+            {commit.project_name}
+          </span>
+          <span>{commit.sha.slice(0, 7)}</span>
+          <span>{fmtRelative(commit.occurred_at)}</span>
+          {(commit.additions > 0 || commit.deletions > 0) && (
+            <span>
+              <span className="text-emerald-400">+{commit.additions}</span>{" "}
+              <span className="text-rose-400">−{commit.deletions}</span>
+            </span>
+          )}
+          {commit.files_changed > 0 && (
+            <span>
+              {commit.files_changed} file{commit.files_changed === 1 ? "" : "s"}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
 export default function AnalyticsPage() {
-  const [range, setRange] = useState<RangeKey>("30d");
+  const [range, setRange] = useState<RangeKey>("2d");
+  const [projectFilter, setProjectFilter] = useState<string>("");
 
   const rangeDays = RANGE_DAYS[range];
 
@@ -148,12 +291,10 @@ export default function AnalyticsPage() {
     queryFn: () => api.getStats(rangeDays),
   });
 
-  const { data: github } = useQuery({
-    queryKey: ["github-status"],
-    queryFn: api.githubStatus,
+  const { data: projects } = useQuery({
+    queryKey: ["projects"],
+    queryFn: api.listProjects,
   });
-
-  const githubLogin = github?.user?.login ?? null;
 
   const totals = useMemo(() => {
     if (!stats) return { commits: 0, activeDays: 0 };
@@ -162,12 +303,14 @@ export default function AnalyticsPage() {
     return { commits, activeDays };
   }, [stats]);
 
+  const projectIdNum = projectFilter ? Number(projectFilter) : null;
+
   return (
     <>
       <PageHeader
         crumb="Analytics"
         title="Activity & history"
-        lead="Commit volume across all tracked projects, grouped by day."
+        lead="Commit volume and timeline across all tracked projects."
       />
 
       <div className="flex flex-wrap items-center gap-2 mb-6">
@@ -190,6 +333,23 @@ export default function AnalyticsPage() {
             );
           })}
         </div>
+
+        <Select
+          value={projectFilter}
+          onValueChange={(v) => setProjectFilter(v ?? "")}
+        >
+          <SelectTrigger className="w-[12rem]">
+            <SelectValue placeholder="All projects" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">All projects</SelectItem>
+            {projects?.map((p) => (
+              <SelectItem key={p.id} value={String(p.id)}>
+                {p.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {error && (
@@ -220,21 +380,16 @@ export default function AnalyticsPage() {
         </CardContent>
       </Card>
 
-      {githubLogin && (
-        <Card className="mb-6">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">
-              GitHub activity ·{" "}
-              <span className="font-mono text-muted-foreground">
-                @{githubLogin}
-              </span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <GitHubHeatmap login={githubLogin} />
-          </CardContent>
-        </Card>
-      )}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Commit history</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="max-h-[480px] overflow-y-auto pr-1">
+            <CommitHistory rangeDays={rangeDays} projectId={projectIdNum} />
+          </div>
+        </CardContent>
+      </Card>
     </>
   );
 }

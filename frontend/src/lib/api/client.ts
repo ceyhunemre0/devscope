@@ -21,6 +21,7 @@ import type {
   WorkingTreeStatus,
   SecretStatus,
   GithubContributions,
+  CommitListItem,
 } from "./types";
 
 function formatDetail(kind: string, detail: unknown): string {
@@ -86,6 +87,11 @@ export const api = {
   getDashboard: () => call<DashboardData>("get_dashboard"),
   getStats: (rangeDays: number) =>
     call<StatsData>("get_stats", { rangeDays }),
+  listRecentCommits: (sinceDays: number, projectId?: number) =>
+    call<CommitListItem[]>("list_recent_commits", {
+      sinceDays,
+      projectId: projectId ?? null,
+    }),
 
   getCommitContext: (projectId: number) =>
     call<CommitContext>("get_commit_context", { projectId }),

@@ -4,6 +4,7 @@ import { api, ApiError } from "@/lib/api/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { FolderPickerButton } from "./FolderPickerButton";
 
 export function AddProjectForm() {
   const queryClient = useQueryClient();
@@ -48,13 +49,25 @@ export function AddProjectForm() {
       <div className="flex flex-wrap gap-3 items-end">
         <div className="flex flex-col gap-1.5 flex-1 min-w-[200px]">
           <Label htmlFor="add-path">Path</Label>
-          <Input
-            id="add-path"
-            value={path}
-            onChange={(e) => setPath(e.target.value)}
-            placeholder="/Users/you/Code/my-repo"
-            required
-          />
+          <div className="flex gap-2">
+            <Input
+              id="add-path"
+              value={path}
+              onChange={(e) => setPath(e.target.value)}
+              placeholder="/Users/you/Code/my-repo"
+              required
+            />
+            <FolderPickerButton
+              onSelect={(p) => {
+                setPath(p);
+                if (!name) {
+                  const leaf = p.split("/").filter(Boolean).pop() ?? "";
+                  setName(leaf);
+                }
+              }}
+              title="Choose project folder"
+            />
+          </div>
         </div>
         <div className="flex flex-col gap-1.5 flex-1 min-w-[160px]">
           <Label htmlFor="add-name">Display name</Label>

@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { Play } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { ReportContent } from "@/components/ReportContent";
+import { GitHubHeatmap } from "@/components/GitHubHeatmap";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,13 @@ export default function DashboardPage() {
     queryKey: ["dashboard"],
     queryFn: api.getDashboard,
   });
+
+  const { data: github } = useQuery({
+    queryKey: ["github-status"],
+    queryFn: api.githubStatus,
+  });
+
+  const githubLogin = github?.user?.login ?? null;
 
   const { data: latestReport } = useQuery({
     queryKey: ["latest-report"],
@@ -117,6 +125,23 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* GitHub heatmap (only when signed in) */}
+      {githubLogin && (
+        <Card className="mb-6">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">
+              GitHub activity ·{" "}
+              <span className="font-mono text-muted-foreground">
+                @{githubLogin}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <GitHubHeatmap login={githubLogin} />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Generate standup card */}
       <Card>
