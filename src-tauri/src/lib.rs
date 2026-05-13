@@ -38,6 +38,16 @@ pub fn run() {
             commands::reports::run_today,
             commands::dashboard::get_dashboard,
             commands::stats::get_stats,
+            commands::commit::get_commit_context,
+            commands::commit::generate_commit_message,
+            commands::github::github_status,
+            commands::github::set_github_token,
+            commands::github::list_github_repos,
+            commands::github::clone_github_repo,
+            commands::settings::get_settings,
+            commands::settings::save_settings,
+            commands::secrets::set_secret,
+            commands::secrets::delete_secret,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
