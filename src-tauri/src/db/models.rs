@@ -14,6 +14,7 @@ pub struct Project {
     pub last_activity_at: Option<DateTime<Utc>>,
     pub state: String,
     pub extra: Option<String>,
+    pub github_full_name: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

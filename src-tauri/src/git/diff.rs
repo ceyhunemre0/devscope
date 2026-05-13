@@ -1,10 +1,44 @@
 use std::path::Path;
 use chrono::TimeZone;
 use git2::{DiffFormat, DiffOptions, ErrorClass, ErrorCode, Repository, StatusOptions, Time};
+use serde::Serialize;
 
 use crate::error::{AppError, AppResult};
 
 const DIFF_LIMIT_BYTES: usize = 256 * 1024;
+
+#[derive(Debug, Clone, Serialize, specta::Type)]
+pub struct WorkingTreeStatus {
+    pub modified: u32,
+    pub untracked: u32,
+    pub deleted: u32,
+    pub has_changes: bool,
+}
+
+pub fn working_tree_status(repo_path: &Path) -> AppResult<WorkingTreeStatus> {
+    if !repo_path.join(".git").exists() {
+        return Err(AppError::NotAGitRepo { path: repo_path.display().to_string() });
+    }
+    let repo = Repository::open(repo_path)?;
+    let mut so = StatusOptions::new();
+    so.include_untracked(true);
+    let statuses = repo.statuses(Some(&mut so))?;
+    let mut modified = 0u32;
+    let mut untracked = 0u32;
+    let mut deleted = 0u32;
+    for entry in statuses.iter() {
+        let s = entry.status();
+        if s.is_wt_new() || s.is_index_new() {
+            untracked += 1;
+        } else if s.is_wt_modified() || s.is_index_modified() {
+            modified += 1;
+        } else if s.is_wt_deleted() || s.is_index_deleted() {
+            deleted += 1;
+        }
+    }
+    let has_changes = modified + untracked + deleted > 0;
+    Ok(WorkingTreeStatus { modified, untracked, deleted, has_changes })
+}
 
 pub struct WorkingTreeSummary {
     pub diff: String,

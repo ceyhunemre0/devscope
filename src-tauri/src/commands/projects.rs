@@ -5,6 +5,7 @@ use tauri::State;
 use crate::error::{AppError, AppResult};
 use crate::db::models::Project;
 use crate::git::discover::{walk_for_repos, DiscoveredRepo};
+use crate::git::diff::{working_tree_status, WorkingTreeStatus};
 use super::AppState;
 
 #[derive(Deserialize, specta::Type)]
@@ -35,12 +36,13 @@ pub async fn add_project(state: State<'_, AppState>, path: String, name: String)
     if !p.join(".git").exists() {
         return Err(AppError::NotAGitRepo { path: path.clone() });
     }
+    let gh = crate::git::remote::github_full_name(p);
     let now = Utc::now();
     let row: Project = sqlx::query_as(
-        "INSERT INTO projects (name, path, state, created_at, updated_at)
-         VALUES (?, ?, 'active', ?, ?) RETURNING *"
+        "INSERT INTO projects (name, path, github_full_name, state, created_at, updated_at)
+         VALUES (?, ?, ?, 'active', ?, ?) RETURNING *"
     )
-    .bind(&name).bind(&path).bind(now).bind(now)
+    .bind(&name).bind(&path).bind(&gh).bind(now).bind(now)
     .fetch_one(&state.pool).await?;
     Ok(row)
 }
@@ -95,18 +97,30 @@ pub async fn bulk_add_projects(state: State<'_, AppState>, items: Vec<BulkAddIte
     let mut out = Vec::with_capacity(items.len());
     let now = Utc::now();
     for it in items {
-        if !std::path::Path::new(&it.path).join(".git").exists() {
+        let p = std::path::Path::new(&it.path);
+        if !p.join(".git").exists() {
             continue; // silently skip non-git paths
         }
+        let gh = crate::git::remote::github_full_name(p);
         let row: Result<Project, _> = sqlx::query_as(
-            "INSERT INTO projects (name, path, state, created_at, updated_at)
-             VALUES (?, ?, 'active', ?, ?) RETURNING *"
+            "INSERT INTO projects (name, path, github_full_name, state, created_at, updated_at)
+             VALUES (?, ?, ?, 'active', ?, ?) RETURNING *"
         )
-        .bind(&it.name).bind(&it.path).bind(now).bind(now)
+        .bind(&it.name).bind(&it.path).bind(&gh).bind(now).bind(now)
         .fetch_one(&state.pool).await;
         if let Ok(r) = row {
             out.push(r);
         }
     }
     Ok(out)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn working_tree_status_for_project(state: State<'_, AppState>, project_id: i64) -> AppResult<WorkingTreeStatus> {
+    let row: (String,) = sqlx::query_as("SELECT path FROM projects WHERE id = ?")
+        .bind(project_id)
+        .fetch_optional(&state.pool).await?
+        .ok_or(AppError::NotFound { resource: "Project".into(), id: project_id })?;
+    working_tree_status(std::path::Path::new(&row.0))
 }

@@ -1,6 +1,7 @@
 pub mod collector;
 pub mod diff;
 pub mod discover;
+pub mod remote;
 pub mod stats;
 
 use serde::{Deserialize, Serialize};

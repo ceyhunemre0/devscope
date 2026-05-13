@@ -10,6 +10,7 @@ fn main() {
         devscope_lib::commands::projects::delete_project,
         devscope_lib::commands::projects::discover_repos,
         devscope_lib::commands::projects::bulk_add_projects,
+        devscope_lib::commands::projects::working_tree_status_for_project,
         devscope_lib::commands::reports::list_reports,
         devscope_lib::commands::reports::get_report,
         devscope_lib::commands::reports::run_today,
@@ -21,10 +22,12 @@ fn main() {
         devscope_lib::commands::github::set_github_token,
         devscope_lib::commands::github::list_github_repos,
         devscope_lib::commands::github::clone_github_repo,
+        devscope_lib::commands::github::github_contributions,
         devscope_lib::commands::settings::get_settings,
         devscope_lib::commands::settings::save_settings,
         devscope_lib::commands::secrets::set_secret,
         devscope_lib::commands::secrets::delete_secret,
+        devscope_lib::commands::secrets::get_secret_status,
     ]);
 
     builder

@@ -33,6 +33,7 @@ pub fn run() {
             commands::projects::delete_project,
             commands::projects::discover_repos,
             commands::projects::bulk_add_projects,
+            commands::projects::working_tree_status_for_project,
             commands::reports::list_reports,
             commands::reports::get_report,
             commands::reports::run_today,
@@ -44,10 +45,12 @@ pub fn run() {
             commands::github::set_github_token,
             commands::github::list_github_repos,
             commands::github::clone_github_repo,
+            commands::github::github_contributions,
             commands::settings::get_settings,
             commands::settings::save_settings,
             commands::secrets::set_secret,
             commands::secrets::delete_secret,
+            commands::secrets::get_secret_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
