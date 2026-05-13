@@ -52,12 +52,21 @@ pub async fn clone_github_repo(state: State<'_, AppState>, args: CloneArgs) -> A
     let token = secrets::get("GITHUB_TOKEN")?;
     let dest = std::path::PathBuf::from(&args.dest_path);
     clone_with_token(&args.clone_url, &dest, token.as_deref())?;
+
     let now = chrono::Utc::now();
-    let row: Project = sqlx::query_as(
+    let row: Result<Project, sqlx::Error> = sqlx::query_as(
         "INSERT INTO projects (name, path, state, created_at, updated_at)
          VALUES (?, ?, 'active', ?, ?) RETURNING *"
     )
-    .bind(args.name).bind(args.dest_path).bind(now).bind(now)
-    .fetch_one(&state.pool).await?;
-    Ok(row)
+    .bind(&args.name).bind(&args.dest_path).bind(now).bind(now)
+    .fetch_one(&state.pool).await;
+
+    match row {
+        Ok(project) => Ok(project),
+        Err(e) => {
+            // Roll back the clone on disk so we don't leave an orphan directory.
+            let _ = std::fs::remove_dir_all(&dest);
+            Err(e.into())
+        }
+    }
 }

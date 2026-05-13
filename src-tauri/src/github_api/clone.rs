@@ -1,7 +1,7 @@
 use std::path::Path;
 use git2::{build::RepoBuilder, FetchOptions, RemoteCallbacks};
 
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 
 pub fn clone_with_token(url: &str, dest: &Path, token: Option<&str>) -> AppResult<()> {
     let mut callbacks = RemoteCallbacks::new();
@@ -14,6 +14,14 @@ pub fn clone_with_token(url: &str, dest: &Path, token: Option<&str>) -> AppResul
     fo.remote_callbacks(callbacks);
     let mut builder = RepoBuilder::new();
     builder.fetch_options(fo);
-    builder.clone(url, dest)?;
+    builder.clone(url, dest).map_err(|e| {
+        log::warn!("clone failed for {url}: {e}");
+        // Extract just the host for a safer frontend-facing message.
+        let host = url
+            .splitn(4, '/')
+            .nth(2)
+            .unwrap_or("remote");
+        AppError::Git(format!("clone failed for {host}"))
+    })?;
     Ok(())
 }
